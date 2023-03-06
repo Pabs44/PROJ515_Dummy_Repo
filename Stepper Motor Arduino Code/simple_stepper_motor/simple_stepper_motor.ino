@@ -8,66 +8,66 @@
 //Takes 10 rotations of roational motor for one full rotation of plate.
 //One rotation of plate causes track to move one rotation of spindle += 200 full steps.
 //When track has moved 855 full steps it needs to start rotating other way.
-//Setting TdirPin LOW moves magnet away from centre.
-//Setting TdirPin HIGH moves magnet towards the centre.
-//Setting RdirPin LOW moves plate clockwise.
-//Setting RdirPin HIGH moves plates anti-clockwise.
+//Setting tDirPin LOW moves magnet away from centre.
+//Setting tDirPin HIGH moves magnet towards the centre.
+//Setting rDirPin LOW moves plate clockwise.
+//Setting rDirPin HIGH moves plates anti-clockwise.
 //1 Track step = 10 Rotational Steps
 //********************************************************************************************************************************************
 
 // defines pins numbers
-const int TstepPin = 3; 
-const int TdirPin = 4; 
-const int TenablePin = 5;
-const int RstepPin = 6; 
-const int RdirPin = 7; 
-const int RenablePin = 8;
+#define tStepPin 3
+#define tDirPin 4
+#define tEnablePin 5
+#define rStepPin 6
+#define rDirPin 7
+#define rEnablePin 8
 
-const int Tdir = 1;
-const int TstepNum = 2;
-const int Rdir = 3;
-const int RstepNum = 4;
+enum serialInput{
+  tDir = 1,
+  tStepNum,
+  rDir,
+  rStepNum
+};
 
-boolean TstepLevel = HIGH;
-boolean RstepLevel = HIGH;
+bool TstepLevel = HIGH;
+bool RstepLevel = HIGH;
 
 int packetPeriod = 1;
 
-char TchosenDir;
-char RchosenDir;
 float Tsteps = 0;
 float Rsteps = 0;
 int switchInput = 1;
- 
+
 void setup() {
   // Sets the two pins as Outputs
-  pinMode(TstepPin,OUTPUT); 
-  pinMode(TdirPin,OUTPUT);
-  pinMode(TenablePin,OUTPUT);
-  
-  pinMode(RstepPin,OUTPUT); 
-  pinMode(RdirPin,OUTPUT);
-  pinMode(RenablePin,OUTPUT);
-  
-  digitalWrite(TdirPin,HIGH);
-  digitalWrite(TenablePin,LOW);
-  digitalWrite(RdirPin,HIGH);
-  digitalWrite(RenablePin,LOW);
+  pinMode(tStepPin, OUTPUT);
+  pinMode(tDirPin, OUTPUT);
+  pinMode(tEnablePin, OUTPUT);
+
+  pinMode(rStepPin, OUTPUT);
+  pinMode(rDirPin, OUTPUT);
+  pinMode(rEnablePin, OUTPUT);
+
+  digitalWrite(tDirPin, HIGH);
+  digitalWrite(tEnablePin, LOW);
+  digitalWrite(rDirPin, HIGH);
+  digitalWrite(rEnablePin, LOW);
 
   Serial.begin(9600);
 
-  noInterrupts();           //disable all interrupts
-  TCCR3A = 0;               //set entire TCCR3A register to 0
-  TCCR3B = 0;               //set entire TCCR3B register to 0
-  TCNT3  = 0;               //initialize counter value to 0
+  noInterrupts();  //disable all interrupts
+  TCCR3A = 0;      //set entire TCCR3A register to 0
+  TCCR3B = 0;      //set entire TCCR3B register to 0
+  TCNT3 = 0;       //initialize counter value to 0
 
-  TCCR4A = 0;               //set entire TCCR4A register to 0
-  TCCR4B = 0;               //set entire TCCR4B register to 0
-  TCNT4  = 0;               //initialize counter value to 0
+  TCCR4A = 0;  //set entire TCCR4A register to 0
+  TCCR4B = 0;  //set entire TCCR4B register to 0
+  TCNT4 = 0;   //initialize counter value to 0
 
-//  TCCR5A = 0;               //set entire TCCR5A register to 0
-//  TCCR5B = 0;               //set entire TCCR5B register to 0
-//  TCNT5  = 0;               //initialize counter value to 0
+  //  TCCR5A = 0;               //set entire TCCR5A register to 0
+  //  TCCR5B = 0;               //set entire TCCR5B register to 0
+  //  TCNT5  = 0;               //initialize counter value to 0
 
   TCCR3B |= (1 << WGM12);   //CTC mode
   TCCR3B |= (1 << CS12);    //256 prescaler
@@ -77,91 +77,57 @@ void setup() {
   TCCR4B |= (1 << CS12);    //256 prescaler
   TIMSK4 |= (1 << OCIE4A);  //enable timer compare interrupt
 
-//  OCR5A = 10;             //Regular interrupt 10 times a second
-//  TCCR5B |= (1 << WGM12);   //CTC mode
-//  TCCR5B |= (1 << CS12);    //256 prescaler
-//  TIMSK5 |= (1 << OCIE5A);  //enable timer compare interrupt
-  interrupts();             //enable all interrupts
+  //  OCR5A = 10;             //Regular interrupt 10 times a second
+  //  TCCR5B |= (1 << WGM12);   //CTC mode
+  //  TCCR5B |= (1 << CS12);    //256 prescaler
+  //  TIMSK5 |= (1 << OCIE5A);  //enable timer compare interrupt
+  interrupts();  //enable all interrupts
 }
 
-ISR(TIMER3_COMPA_vect)
-{
-  if(Tsteps >= 1)
-  {
+ISR(TIMER3_COMPA_vect) {
+  if (Tsteps >= 1) {
     TstepLevel = !TstepLevel;
-    digitalWrite(TstepPin,TstepLevel); 
+    digitalWrite(tStepPin, TstepLevel);
     Tsteps--;
-  }
-  else{digitalWrite(TenablePin,HIGH);}
+  } else digitalWrite(tEnablePin, HIGH);
 }
 
-ISR(TIMER4_COMPA_vect)
-{
-  if(Rsteps >= 1)
-  {
+ISR(TIMER4_COMPA_vect) {
+  if (Rsteps >= 1) {
     RstepLevel = !RstepLevel;
-    digitalWrite(RstepPin,RstepLevel); 
+    digitalWrite(rStepPin, RstepLevel);
     Rsteps--;
-  }
-  else{digitalWrite(RenablePin,HIGH);}
+  } else digitalWrite(rEnablePin, HIGH);
 }
 
-ISR(TIMER5_COMPA_vect)
-{
-
+ISR(TIMER5_COMPA_vect) {
 }
 
-void loop()
-{
-  if ((Tsteps < 1) && (Rsteps < 1))
-  {
-    while ((Tsteps < 1) || (Rsteps < 1))
-    {
-      if (Serial.available() > 0) 
-      {
-        if (switchInput == Tdir)
-        {
-          TchosenDir = Serial.read();
-          switchInput = TstepNum;
-          if (TchosenDir == 'p')
-          {
-            digitalWrite(TdirPin,LOW);
-          }
-          else if (TchosenDir == 'n')
-          {
-            digitalWrite(TdirPin,HIGH);
-          }
-        }
-        else if (switchInput == TstepNum)
-        {
-          digitalWrite(TenablePin,LOW);
-          Tsteps = Serial.read();
-          Tsteps = Tsteps*2*16;
-          OCR3A = packetPeriod*62500/Tsteps;
-          switchInput = Rdir;
-        }
-  
-        else if (switchInput == Rdir)
-        {
-          RchosenDir = Serial.read();
-          switchInput = RstepNum;
-          if (RchosenDir == 'p')
-          {
-            digitalWrite(RdirPin,LOW);
-          }
-          else if (RchosenDir == 'n')
-          {
-            digitalWrite(RdirPin,HIGH);
-          }
-        }
-        else if (switchInput == RstepNum)
-        {
-          digitalWrite(RenablePin,LOW);
-          Rsteps = Serial.read();
-          Rsteps = Rsteps*2*16;
-          OCR4A = packetPeriod*62500/Rsteps;
-          switchInput = Tdir;
-        }
+void chosenDir(enum serialInput dirPin, char* serialRead) {
+  if(serialRead == 'p') digitalWrite(dirPin, LOW);
+  else if(serialRead == 'n') digitalWrite(dirPin, HIGH);
+}
+
+void loop() {
+  if (Tsteps < 1 && Rsteps < 1 && Serial.available()) {
+    while (Tsteps < 1 || Rsteps < 1) {
+      switch (switchInput) {
+      case tDir:
+        switchInput = tStepNum;
+        chosenDir(tDirPin, Serial.read());
+      case tStepNum:
+        digitalWrite(tEnablePin, LOW);
+        Tsteps = Serial.read() * 2 * 16;
+        OCR3A = packetPeriod * 62500 / Tsteps;
+        switchInput = rDir;
+      case rDir:
+        switchInput = rStepNum;
+        chosenDir(tDirPin, Serial.read());
+      case rStepNum:
+        digitalWrite(rEnablePin, LOW);
+        Rsteps = Serial.read() * 2 * 16;
+        OCR4A = packetPeriod * 62500 / Rsteps;
+        switchInput = tDir;
       }
     }
   }
