@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.11.0, 2023-03-08T17:04:23. -->
+<!-- Written by QtCreator 4.11.0, 2023-03-14T18:17:57. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -282,9 +282,10 @@
     </valuelist>
     <value type="int" key="PE.EnvironmentAspect.Base">2</value>
     <valuelist type="QVariantList" key="PE.EnvironmentAspect.Changes"/>
-    <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:/home/pablo/qt-projects/depth-map/depth-map.pro</value>
-    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">/home/pablo/qt-projects/depth-map/depth-map.pro</value>
-    <value type="QString" key="RunConfiguration.Arguments">~/qt-projects/depth-map/in_VID5.xml</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.DisplayName">depth-map2</value>
+    <value type="QString" key="ProjectExplorer.ProjectConfiguration.Id">Qt4ProjectManager.Qt4RunConfiguration:/home/pablo/GitHub/PROJ515_Dummy_Repo/qt-projects/depth-map/depth-map.pro</value>
+    <value type="QString" key="ProjectExplorer.RunConfiguration.BuildKey">/home/pablo/GitHub/PROJ515_Dummy_Repo/qt-projects/depth-map/depth-map.pro</value>
+    <value type="QString" key="RunConfiguration.Arguments"></value>
     <value type="bool" key="RunConfiguration.Arguments.multi">false</value>
     <value type="QString" key="RunConfiguration.OverrideDebuggerStartup"></value>
     <value type="bool" key="RunConfiguration.UseCppDebugger">false</value>
