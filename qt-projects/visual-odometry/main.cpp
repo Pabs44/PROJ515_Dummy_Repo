@@ -10,11 +10,12 @@ struct Vector3D{
 
 const string filePoints = "points.xml";
 const string fileERT = "ERT.xml";
+//const string calib_file = "calibration_output.xml";
 const string calib_file = "camera_calibration_fourth.xml";
 const int userHeight = 1800; //This is in mm -> 180 cm
-const int numImgs = 14;
+const int numImgs = 2;
 
-Mat img = imread("photos/phone1.jpg");
+Mat img = imread("photos/mouse1.jpg");
 Mat cameraMatrix, map1, map2;
 Mat imgRect[numImgs];
 Mat gray[numImgs];
@@ -23,7 +24,6 @@ Mat distCoeffs = Mat::zeros(8, 1, CV_64F);
 const Matx31d fp = Matx31d(0, 0, 0); //Focal point is on z-plane to keep focal length positive
 
 vector<Point2f> points[numImgs];
-vector<vector<Point2f>> pointsVector;
 vector<uchar> status;
 
 Size imgSize = img.size();
@@ -43,12 +43,12 @@ void featureDetection(Mat img_1, vector<Point2f>& points1){
 void featureTracking(Mat img_1, Mat img_2, vector<Point2f>& points1, vector<Point2f>& points2, vector<uchar>& status){
     //this function automatically gets rid of points for which tracking fails
     vector<float> err;
-    Size winSize = imgSize;
+    Size winSize = Size(21,21);
     cout << "Tracking: Finding term criteria" << endl;
     TermCriteria termcrit = TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01);
 
     cout << "Tracking: Calculating optical flow" << endl;
-    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, OPTFLOW_USE_INITIAL_FLOW, 0.03);
+    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001);
 
     //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
     cout << "Tracking: Correcting" << endl;
@@ -72,17 +72,17 @@ float DotProd(Matx31d a, Matx31d b){
 }
 
 Matx31d DotProdMatx31d(Mat E, Matx31d point){
-    double new_x = E.at<double>(0,0)*point(0,0)+E.at<double>(0,1)*point(0,1)+E.at<double>(0,2)*point(0,2);
-    double new_y = E.at<double>(1,0)*point(0,0)+E.at<double>(1,1)*point(0,1)+E.at<double>(1,2)*point(0,2);
-    double new_z = E.at<double>(2,0)*point(0,0)+E.at<double>(2,1)*point(0,1)+E.at<double>(2,2)*point(0,2);
+    double new_x = E.at<double>(0,0)*point(0,0)+E.at<double>(0,1)*point(1,0)+E.at<double>(0,2)*point(2,0);
+    double new_y = E.at<double>(1,0)*point(0,0)+E.at<double>(1,1)*point(1,0)+E.at<double>(1,2)*point(2,0);
+    double new_z = E.at<double>(2,0)*point(0,0)+E.at<double>(2,1)*point(1,0)+E.at<double>(2,2)*point(2,0);
 
     return Matx31d(new_x, new_y, new_z);
 }
 
 Matx31d HRotTrans(Mat Rot, Matx31d Trans, Matx31d point){
-    double new_x = Rot.at<double>(0,0)*point(0,0)+Rot.at<double>(0,1)*point(0,1)+Rot.at<double>(0,2)*point(0,2)+Trans(0,0);
-    double new_y = Rot.at<double>(1,0)*point(0,0)+Rot.at<double>(1,1)*point(0,1)+Rot.at<double>(1,2)*point(0,2)+Trans(0,1);
-    double new_z = Rot.at<double>(2,0)*point(0,0)+Rot.at<double>(2,1)*point(0,1)+Rot.at<double>(2,2)*point(0,2)+Trans(0,2);
+    double new_x = Rot.at<double>(0,0)*point(0,0)+Rot.at<double>(0,1)*point(1,0)+Rot.at<double>(0,2)*point(2,0)+Trans(0,0);
+    double new_y = Rot.at<double>(1,0)*point(0,0)+Rot.at<double>(1,1)*point(1,0)+Rot.at<double>(1,2)*point(2,0)+Trans(0,1);
+    double new_z = Rot.at<double>(2,0)*point(0,0)+Rot.at<double>(2,1)*point(1,0)+Rot.at<double>(2,2)*point(2,0)+Trans(0,2);
 
     return Matx31d(new_x, new_y, new_z);
 }
@@ -125,20 +125,23 @@ int main(){
 
     namedWindow("Image", WINDOW_KEEPRATIO);
     resizeWindow("Image",imgSize);
-    namedWindow("Gray_1", WINDOW_KEEPRATIO);
-    resizeWindow("Gray_1",imgSize);
-    namedWindow("Gray_2", WINDOW_KEEPRATIO);
-    resizeWindow("Gray_2",imgSize);
+    namedWindow("Image2", WINDOW_KEEPRATIO);
+    resizeWindow("Image2",imgSize);
+
+//    namedWindow("Gray_1", WINDOW_KEEPRATIO);
+//    resizeWindow("Gray_1",imgSize);
+//    namedWindow("Gray_2", WINDOW_KEEPRATIO);
+//    resizeWindow("Gray_2",imgSize);
 
     for(int i = 1; i <= numImgs; i++){
         cout << "Correcting image " << i << endl;
 
         ostringstream imgName;
-        imgName << "photos/phone" << i << ".jpg";
+        imgName << "photos/mouse" << i << ".jpg";
         img = imread(imgName.str());
 
         remap(img, imgRect[i-1], map1, map2, INTER_LINEAR);
-        cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY, 255);
+        cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
 
 //        imshow("Image", imgRect[i-1]);
 //        imshow("Gray_1", gray[i-1]);
@@ -151,13 +154,14 @@ int main(){
     try{
         fs.open(filePoints, FileStorage::READ);
     }catch(exception& e){
-        cout << "Warning, file is empty. Writing to .xml now, this may take a while..." << endl;
+        cout << "Warning, file is empty. Writing to .xml now, this may take a while (edit the float at the end of calcOpticalFlowPyrLK for performance) ..." << endl;
         setWrite = true;
         fs.open(filePoints, FileStorage::WRITE);
     }
 
     for(int i = 1; i < numImgs; i++){
         cout << "\nFrames " << i << " to " << i+1 << ": " << endl;
+
         //XML section names
         ostringstream pointsNameF1, pointsNameF2, pointsNameF2_real;
         pointsNameF1 << "points" << i;
@@ -175,9 +179,9 @@ int main(){
             featureDetection(gray[i-1], points[i-1]);
             featureDetection(gray[i], points[i]);
 
-            cout << points[i-1].size() << endl << points[i].size() << endl;
+            cout << "Features in Image 1: " << points[i-1].size() << endl << "Features in Image 2: " << points[i].size() << endl;
 
-            points[i].resize(points[i-1].size());
+//            points[i].resize(points[i-1].size()); //Only necessary if using OPTFLOW_USE_INITIAL_FLOW
             featureTracking(gray[i-1], gray[i], points[i-1], points[i], status);
 
             fs << pointsNameF1.str() << points[i-1];
@@ -189,42 +193,59 @@ int main(){
 
         Mat hImgRect;
         hconcat(imgRect[i-1], imgRect[i], hImgRect);
-        for(int j = 0; j < (int)points[i-1].size(); j++){
-            int r = rand() % (255 + 1 - 0) + 0;
-            int g = rand() % (255 + 1 - 0) + 0;
-            int b = rand() % (255 + 1 - 0) + 0;
-            line(hImgRect, points[i-1].at(j), points[i].at(j) + Point2f(imgRect[i-1].size().width, 0), Scalar(b, g, r));
-        }
-
+        for(int j = 0; j < (int)points[i-1].size(); j++)
+            line(hImgRect, points[i-1].at(j), points[i].at(j)+Point2f(imgRect[i-1].size().width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)));
         while(waitKey(10) != 'x'){
-            imshow("Gray_1", gray[i-1]);
-            imshow("Gray_2", gray[i]);
+//            imshow("Gray_1", gray[i-1]);
+//            imshow("Gray_2", gray[i]);
             imshow("Image", hImgRect);
         }
 
         cout << "First feature in image = " << points[i-1].at(0) << endl;
 
-//        for(int j = 0; j < (int)points[i-1].size(); j++){
-//            circle(imgRect[i-1], points[i-1].at(j), 1, Scalar(0,0,255), -1);
-//            if((int)points[i-1].at(j).x == 333){
-//                cout << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
-//                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
-//            }
-//            imshow("Image", imgRect[i-1]);
-//            waitKey(0);
-//        }
-
         Mat mask, R, t;
-        Mat E = findEssentialMat(points[i], points[i-1], focal, pp, RANSAC, 0.999, 1.0, mask);
-        recoverPose(E, points[i], points[i-1], R, t, focal, pp, mask);
+        Mat E = findEssentialMat(points[i-1], points[i], focal, pp, RANSAC, 0.999, 1.0, mask);
+        cout << "mask elements: " << (int)mask.size().height << endl;
+
+        int indexCorrection = 0;
+        for(int j = 0; j < (int)mask.size().height; j++){
+            Point2f pt = points[i].at(j - indexCorrection);
+            if ((mask.at<int>(j,0) == 0)||(pt.x<0)||(pt.y<0)){
+                if(pt.x<0 || pt.y<0) mask.at<int>(j,0) = 0;
+                points[i-1].erase(points[i-1].begin() + j - indexCorrection);
+                points[i].erase(points[i].begin() + j - indexCorrection);
+                indexCorrection++;
+            }
+        }
+
+        Mat hImgRect2, hImgRect3;
+        hconcat(imgRect[i-1], imgRect[i], hImgRect2);
+        hconcat(imgRect[i-1], imgRect[i], hImgRect3);
+        int pointNum = 0;
+        for(int j = 0; j < (int)points[i-1].size(); j++){
+            line(hImgRect2, points[i-1].at(j), points[i].at(j)+Point2f(imgSize.width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)));
+            circle(hImgRect3, points[i-1].at(j), 1, Scalar(0,0,255), -1);
+            circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 1, Scalar(0,0,255), -1);
+            if(((int)points[i-1].at(j).x>=300 && (int)points[i-1].at(j).x<=590) && ((int)points[i-1].at(j).y>=320 && (int)points[i-1].at(j).y<=500)){ //Locate points in the center
+                circle(hImgRect3, points[i-1].at(j), 1, Scalar(255,0,0), -1);
+                circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 1, Scalar(255,0,0), -1);
+                cout << "Feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
+                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
+                pointNum = j;
+            }
+        }
+        while(waitKey(10) != 'x'){
+            imshow("Center Features", hImgRect3);
+            imshow("Image2", hImgRect2);
+        }
+
+        recoverPose(E, points[i], points[i-1], R, t, focal, pp);
         cout << "The essential matrix is: " << endl << E << endl << "Rotation is: " << endl << R << endl << "Translation is: " << endl << t << endl; //Output ess, rot, and trans matrices to console
 
         fs1 << framesERT.str() << "{" << essERT.str() << E << rotERT.str() << R << transERT.str() << t << "}"; //Write essential, rotation, and translation matrices to file
 
         //Estimate depth (position in 3D space of a feature)
         float LeftCoeff, RightCoeff;
-        int pointNum = 547;
-
         Vector3D pointF1Pos, pointF2Pos;
         pointF1Pos.Org = fp;
         pointF1Pos.Scl = Matx31d((double)points[i-1].at(pointNum).x - pp.x, (double)points[i-1].at(pointNum).y - pp.y, focal);
