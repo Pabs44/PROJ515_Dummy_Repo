@@ -5,12 +5,12 @@
 struct RECVD_DISTANCES {
   float MOTOR_1;
   float MOTOR_2;
-} MOV_DIST = {30.0, 50.0};
+} MOV_DIST = {10, 10};
 
 struct VARS_PINS {
-  float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST;
-  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK;
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, 30.0, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20};
+  float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
+  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK, DEBOUNCE[2];
+} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, 0, {0, 0}};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -43,7 +43,7 @@ void CALC_MOV(float MOTOR_DIS, int MOT_ID, float COG_RAD) {
   noInterrupts();
 
   // CHECKING IF DISTANCE FROM BLUETOOTH CONTROLLER, IS POSSIBLE AND IS LIMITED IF NOT.
-  MOTOR_DIS = (MOTOR_DIS > 40) ? 40.0 : MOTOR_DIS;
+  MOTOR_DIS = (MOTOR_DIS > V_P.MAX_DIST[(MOT_ID - 1)]) ? V_P.MAX_DIST[(MOT_ID - 1)] : MOTOR_DIS;
 
   // MOVE PLATES ACCORDING TO MEASUREMENTS.
   if (CHECK_DISTANCE_ULTRA(1) > MOTOR_DIS) {
@@ -84,21 +84,28 @@ void MOVE_HOME_POS() {
     digitalWrite(V_P.DIR_PINS[i], LOW);
 
     // RUNS TILL HIT OF LIMIT SWITCH.
-    while (digitalRead(V_P.LIMIT_PINS[i]) == LOW) {
+    while ((digitalRead(V_P.LIMIT_PINS[i]) == LOW) && (V_P.CHECK == 0)) {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
-
-        // CHECKING IF LIMIT SWITCH IS PRESSED AND IT EXITS WHILE LOOP.
-        if (V_P.CHECK == 1) break;
     }
+    noInterrupts();
     // RESETTING CHECK.
     V_P.CHECK = 0;
+    Serial.println("E");  
+    while (digitalRead(V_P.LIMIT_PINS[i]) == HIGH) {}
+    interrupts();
   }
 }
 
 void LIMIT_CHECKIN() {
-  V_P.CHECK = 1;
+  V_P.DEBOUNCE[0] = millis();
+  V_P.DEBOUNCE[1] = millis();
+
+  if ((V_P.DEBOUNCE[1] - V_P.DEBOUNCE[0]) > 200) {
+    V_P.CHECK = 1;
+  }
+  V_P.DEBOUNCE[0] = V_P.DEBOUNCE[1];
 }
 
 void setup() {
@@ -115,8 +122,9 @@ void setup() {
     pinMode(V_P.DIR_PINS[j], OUTPUT);
     pinMode(V_P.STEP_PINS[j], OUTPUT);
     pinMode(V_P.LIMIT_PINS[j], INPUT);
-    attachInterrupt(digitalPinToInterrupt(V_P.LIMIT_PINS[j]), LIMIT_CHECKIN, RISING); 
   }
+
+  attachInterrupt(digitalPinToInterrupt(V_P.LIMIT_PINS[0]), LIMIT_CHECKIN, RISING); 
 
   // BUTTON PIN AND ATTACHING INTERRUPT.
   pinMode(V_P.BUTTON, INPUT);
@@ -126,7 +134,7 @@ void setup() {
   MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.CHEST_COG_RAD);
+  CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
   CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
   MOV_MOTORS();
 }
