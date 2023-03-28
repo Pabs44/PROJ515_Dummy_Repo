@@ -5,12 +5,12 @@
 struct RECVD_DISTANCES {
   float MOTOR_1;
   float MOTOR_2;
-} MOV_DIST = {10, 10};
+} MOV_DIST = {100, 100};
 
 struct VARS_PINS {
   float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
-  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK, DEBOUNCE[2];
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, 0, {0, 0}};
+  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK[AMOUNT_MOT], DEBOUNCE[2], init_sw;
+} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, {0, 0}, {0, 0}, 0};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -84,29 +84,22 @@ void MOVE_HOME_POS() {
     digitalWrite(V_P.DIR_PINS[i], LOW);
 
     // RUNS TILL HIT OF LIMIT SWITCH.
-    while ((digitalRead(V_P.LIMIT_PINS[i]) == LOW) && (V_P.CHECK == 0)) {
+    while (V_P.CHECK[i] == 0) {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
     }
-    noInterrupts();
+
     // RESETTING CHECK.
-    V_P.CHECK = 0;
+    V_P.CHECK[i] = 0;
     Serial.println("E");  
-    while (digitalRead(V_P.LIMIT_PINS[i]) == HIGH) {}
-    interrupts();
+    while (digitalRead(V_P.LIMIT_PINS[i]) == HIGH);
   }
 }
 
-void LIMIT_CHECKIN() {
-  V_P.DEBOUNCE[0] = millis();
-  V_P.DEBOUNCE[1] = millis();
-
-  if ((V_P.DEBOUNCE[1] - V_P.DEBOUNCE[0]) > 200) {
-    V_P.CHECK = 1;
-  }
-  V_P.DEBOUNCE[0] = V_P.DEBOUNCE[1];
-}
+// Interrupts for arduino.
+// https://4donline.ihs.com/images/VipMasterIC/IC/MCHP/MCHP-S-A0010212075/MCHP-S-A0010410632-1.pdf?hkey=6D3A4C79FDBF58556ACFDE234799DDF0
+// https://arduino.stackexchange.com/questions/30968/how-do-interrupts-work-on-the-arduino-uno-and-similar-boards 
 
 void setup() {
   Serial.begin(9600);
@@ -123,15 +116,13 @@ void setup() {
     pinMode(V_P.STEP_PINS[j], OUTPUT);
     pinMode(V_P.LIMIT_PINS[j], INPUT);
   }
-
-  attachInterrupt(digitalPinToInterrupt(V_P.LIMIT_PINS[0]), LIMIT_CHECKIN, RISING); 
-
+  
   // BUTTON PIN AND ATTACHING INTERRUPT.
   pinMode(V_P.BUTTON, INPUT);
   attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), MOVE_HOME_POS, RISING);
 
   // STARTING BY MOVING HOME.
-  MOVE_HOME_POS();
+  // MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
   CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
