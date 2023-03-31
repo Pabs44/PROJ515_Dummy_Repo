@@ -86,7 +86,7 @@ void MOVE_HOME_POS() {
     // RUNS TILL HIT OF LIMIT SWITCH.
     while (V_P.CHECK[i] == 0) {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
-        wait_us(MOT_DELAY * 1000);
+        wait_us(MOT_DELAY * 1000); //the delay() function is in ms so use that?
         digitalWrite(V_P.STEP_PINS[i], LOW);
     }
 
