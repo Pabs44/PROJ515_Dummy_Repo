@@ -9,8 +9,8 @@ struct RECVD_DISTANCES {
 
 struct VARS_PINS {
   float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
-  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK[AMOUNT_MOT], DEBOUNCE[AMOUNT_MOT][2], init_sw[AMOUNT_MOT];
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, {0, 0}, {}, {0, 0}};
+  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK[AMOUNT_MOT];
+} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, {0, 0}};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -78,49 +78,31 @@ void MOV_MOTORS() {
 }
 
 void MOVE_HOME_POS() {
-  // SELECTING MOTOR TO MOVE.
+// SELECTING MOTOR TO MOVE.
   for (int i = 0; i < AMOUNT_MOT; i++) {
     // SETTING ROTATION.
     digitalWrite(V_P.DIR_PINS[i], LOW);
 
+    Serial.println(i);
     // RUNS TILL HIT OF LIMIT SWITCH.
     while (V_P.CHECK[i] == 0) {
-        digitalWrite(V_P.STEP_PINS[i], HIGH);
-        wait_us(MOT_DELAY * 1000); //the delay() function is in ms so use that?
-        digitalWrite(V_P.STEP_PINS[i], LOW);
+      digitalWrite(V_P.STEP_PINS[i], HIGH);
+      wait_us(MOT_DELAY * 1000);  //the delay() function is in ms so use that?
+      digitalWrite(V_P.STEP_PINS[i], LOW);
     }
 
     // RESETTING CHECK.
     V_P.CHECK[i] = 0;
-    Serial.println("E");  
-    while (digitalRead(V_P.LIMIT_PINS[i]) == HIGH);
+    Serial.println("E");
   }
 }
 
 // Interrupts for arduino.
 // https://4donline.ihs.com/images/VipMasterIC/IC/MCHP/MCHP-S-A0010212075/MCHP-S-A0010410632-1.pdf?hkey=6D3A4C79FDBF58556ACFDE234799DDF0
-// https://arduino.stackexchange.com/questions/30968/how-do-interrupts-work-on-the-arduino-uno-and-similar-boards 
+// https://arduino.stackexchange.com/questions/30968/how-do-interrupts-work-on-the-arduino-uno-and-similar-boards
 
-void LIMIT_PUSH(int ID) {
-  // Setting initial time of first rise of interrupt.
-  if (V_P.init_sw[0] == 0) {
-    V_P.DEBOUNCE[ID][0] = millis();
-    V_P.init_sw[ID] = 1;
-  }
-
-  // Setting actual time.
-  V_P.DEBOUNCE[ID][1] = millis();
-
-  // Getting difference of both times, and if the bouncing of the button has gone.
-  if ((V_P.DEBOUNCE[ID][1] - V_P.DEBOUNCE[ID][0]) > 200) {
-    // Add one to check.
-    V_P.CHECK[ID] = 1;
-    V_P.init_sw[ID] = 0;
-  }
-}
-
-void LIMIT_PUSH_1() {LIMIT_PUSH(0);}
-void LIMIT_PUSH_2() {LIMIT_PUSH(1);}
+void LIMIT_PUSH_1() {V_P.CHECK[0] = 1;}
+void LIMIT_PUSH_2() {V_P.CHECK[1] = 1;}
 
 // TAKEN FROM HERE: https://forum.arduino.cc/t/using-a-variable-as-a-function-name/168313/4
 // GETTING ARRAY OF FUNCTIONS.
@@ -151,7 +133,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), MOVE_HOME_POS, RISING);
 
   // STARTING BY MOVING HOME.
-  // MOVE_HOME_POS();
+  MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
   CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
