@@ -9,8 +9,10 @@ struct RECVD_DISTANCES {
 
 struct VARS_PINS {
   float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
-  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK[AMOUNT_MOT];
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 20, {}, {0, 0}};
+  int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT];
+  volatile int CHECK[AMOUNT_MOT], init_sw[AMOUNT_MOT];
+  volatile long DEBOUNCE[AMOUNT_MOT][2];
+} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 2}, {6, 7}, 20, {}, {0, 0}, {0, 0}};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -83,7 +85,6 @@ void MOVE_HOME_POS() {
     // SETTING ROTATION.
     digitalWrite(V_P.DIR_PINS[i], LOW);
 
-    Serial.println(i);
     // RUNS TILL HIT OF LIMIT SWITCH.
     while (V_P.CHECK[i] == 0) {
       digitalWrite(V_P.STEP_PINS[i], HIGH);
@@ -97,12 +98,26 @@ void MOVE_HOME_POS() {
   }
 }
 
-// Interrupts for arduino.
-// https://4donline.ihs.com/images/VipMasterIC/IC/MCHP/MCHP-S-A0010212075/MCHP-S-A0010410632-1.pdf?hkey=6D3A4C79FDBF58556ACFDE234799DDF0
-// https://arduino.stackexchange.com/questions/30968/how-do-interrupts-work-on-the-arduino-uno-and-similar-boards
+// Taken advice from here: https://arduino.stackexchange.com/questions/22212/using-millis-and-micros-inside-an-interrupt-routine
+void LIMIT_PUSH(int ID) {
+  if (V_P.init_sw[ID] == 0) {
+    V_P.DEBOUNCE[ID][0] = micros();
+    V_P.init_sw[ID] = 1;
+  }
 
-void LIMIT_PUSH_1() {V_P.CHECK[0] = 1;}
-void LIMIT_PUSH_2() {V_P.CHECK[1] = 1;}
+  V_P.DEBOUNCE[ID][1] = micros();
+
+  if (V_P.init_sw[ID] == 1) {
+    if ((V_P.DEBOUNCE[ID][1] - V_P.DEBOUNCE[ID][0]) > 100000) {
+      V_P.CHECK[ID] = 1;
+      V_P.init_sw[ID] = 0;
+      Serial.println(ID);
+    }
+  }
+}
+
+void LIMIT_PUSH_1() {LIMIT_PUSH(0);}
+void LIMIT_PUSH_2() {LIMIT_PUSH(1);}
 
 // TAKEN FROM HERE: https://forum.arduino.cc/t/using-a-variable-as-a-function-name/168313/4
 // GETTING ARRAY OF FUNCTIONS.
@@ -111,7 +126,7 @@ typedef void (*FuncPtr)(void);
 FuncPtr LIMIT_PUSH_FUNC[] = {&LIMIT_PUSH_1, &LIMIT_PUSH_2};
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(115200);
 
   // PINS OF TRIG AND ECHO, OF EACH SENSOR.
   for (int i = 0; i < AMOUNT_ULTRA; i++) {
@@ -133,12 +148,12 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), MOVE_HOME_POS, RISING);
 
   // STARTING BY MOVING HOME.
-  MOVE_HOME_POS();
+  // MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
-  CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
-  MOV_MOTORS();
+  // CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
+  // CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
+  // MOV_MOTORS();
 }
 
 void loop() {
