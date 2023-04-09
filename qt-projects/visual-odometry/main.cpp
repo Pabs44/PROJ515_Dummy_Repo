@@ -9,26 +9,30 @@ struct Vector3D{
     Matx31d Scl = Matx31d(0,0,0);
 };
 
+const string fileVid = "./photos/manuel.mp4";
 const string filePoints = "points.xml";                     //Output file for feature location within image space
 const string fileERT = "ERT.xml";                           //Output file for essential, rotation, and translation matrices
 const string calib_file = "calibration_output.xml";       //Camera calibration file for images at full resolution of Samsung Galaxy S20 FE 5G camera
 //const string calib_file = "calibration_output_fourth.xml";  //Camera calibration file for images at 1/4th resolution of Samsung Galaxy S20 FE 5G camera
 const double knownUnit = 1900;                              //Known distance between two points in mm --> 12.5 cm for the mouse / 190 cm for Tom height / 24.5 cm for James chest to neck distance
-const int numImgs = 2;                                      //Number of images per group (frames for video)
 double imgScalar;                                           //Scalar used to set point coordinates in real space
 bool setWrite = false;
+bool imgInput = true;
 
-Mat cameraMatrix, map1, map2, imgRect[numImgs], gray[numImgs];  //Matrices containing the camera matrix, distortion correction maps, rectified images, and grayscale rectified images
+Mat cameraMatrix, map1, map2;  //Matrices containing the camera matrix, distortion correction maps, rectified images, and grayscale rectified images
 Mat img = imread("photos/tom_full1.jpg");                            //First photo/frame in group/video (used to set size throughout program)
 Mat distCoeffs = Mat::zeros(8, 1, CV_64F);                      //Matrix containing the distortion coefficients (empty in case camera calibration file cannot be opened)
 
 const Matx31d fp = Matx31d(0, 0, 0); //Focal point is on z-plane to keep focal length positive
 
-vector<Point2f> points[numImgs]; //Array of vectors containing all points (features) within an image/frame
 vector<uchar> status;            //Vector containing point and corresponding filter status for tracking
 
-Size imgSize = img.size(); //Size of images/frames used throughout program
-Size winSize = Size(img.size().width/2, img.size().height/4);
+VideoCapture capture(fileVid);
+
+//Size imgSize = img.size(); //Size of images/frames used throughout program
+Size imgSize = Size(capture.get(CAP_PROP_FRAME_HEIGHT), capture.get(CAP_PROP_FRAME_WIDTH));
+//Size winSize = Size(img.size().width/2, img.size().height/4);
+Size winSize = imgSize;
 
 //FAST feature detection
 void featureDetection(Mat img_1, vector<Point2f>& points1){
@@ -45,7 +49,6 @@ void featureDetection(Mat img_1, vector<Point2f>& points1){
 void featureTracking(Mat img_1, Mat img_2, vector<Point2f>& points1, vector<Point2f>& points2, vector<uchar>& status){
     //this function automatically gets rid of points for which tracking fails
     vector<float> err;
-//    Size winSize = Size(21,21);
     Size winSize = Size(21,21); //85,85
     cout << "Tracking: Finding term criteria" << endl;
     TermCriteria termcrit = TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 100, 0.0001);
@@ -138,28 +141,59 @@ int main(){
     namedWindow("Subject Features", WINDOW_KEEPRATIO);
     resizeWindow("Subject Features", winSize);
 
-//    namedWindow("Gray_1", WINDOW_KEEPRATIO);
-//    resizeWindow("Gray_1",imgSize);
-//    namedWindow("Gray_2", WINDOW_KEEPRATIO);
-//    resizeWindow("Gray_2",imgSize);
+    //Grab video source and take a frame
+    int numImgs = capture.get(CAP_PROP_FRAME_COUNT);
+    Mat imgRect[numImgs], gray[numImgs], frame;
+    vector<Point2f> points[numImgs]; //Array of vectors containing all points (features) within an image/frame
+    imgInput = false;
+    cout << imgSize <<endl;
+
+    try{
+        capture.open(fileVid);
+    }catch(exception& e){
+        cout << "No video input, switching to image input..." << endl;
+        imgInput = true;
+        numImgs = 2;
+    }
 
     //Rectify and grayscale images
-    for(int i = 1; i <= numImgs; i++){
-        cout << "Correcting image " << i << endl;
+    if(!imgInput){
+        cout << "Video frame correction" << endl;
+        int i = 1;
+        for(;;){
+            if(i >= numImgs-1) break;
+            capture >> frame;
+            if(!capture.read(frame)){
+                cout << "Frame " << i << " empty, skipping..." << endl;
+                i++;
+                continue;
+            }
 
-        ostringstream imgName;
-        imgName << "photos/tom_full" << i << ".jpg";
-        img = imread(imgName.str());
+            cout << "Correcting frame " << i << endl;
+            rotate(frame, frame, ROTATE_90_CLOCKWISE);
+            remap(frame, imgRect[i-1], map1, map2, INTER_LINEAR);
+            cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
+            i++;
+        }
+    }else{
+        cout << "Image correction" << endl;
+        for(int i = 1; i <= numImgs; i++){
+            cout << "Correcting image " << i << endl;
 
-        remap(img, imgRect[i-1], map1, map2, INTER_LINEAR);
-        cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
+            ostringstream imgName;
+            imgName << "photos/tom_full" << i << ".jpg";
+            img = imread(imgName.str());
+
+            remap(img, imgRect[i-1], map1, map2, INTER_LINEAR);
+            cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
+        }
+    }
 
 //        imshow("Image", imgRect[i-1]);
 //        imshow("Gray_1", gray[i-1]);
 //        waitKey(0);
-    }
 
-    //Feature detection/tracking and essential matrix/rotation/transformation calculation
+    //Try to open points.xml
     FileStorage fs1(fileERT, FileStorage::WRITE);
     try{
         fs.open(filePoints, FileStorage::READ);
