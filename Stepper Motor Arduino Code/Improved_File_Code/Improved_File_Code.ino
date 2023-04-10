@@ -10,9 +10,9 @@ struct RECVD_DISTANCES {
 struct VARS_PINS {
   float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
   int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT];
-  volatile int CHECK[AMOUNT_MOT], init_sw[AMOUNT_MOT];
-  volatile long DEBOUNCE[AMOUNT_MOT][2];
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 2}, {6, 7}, 20, {}, {0, 0}, {0, 0}};
+  volatile int CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT], RUNNING_MOT[AMOUNT_MOT], SWITCH_OFF_MOT[AMOUNT_MOT], RUN_TO_HOME;
+  volatile long DEBOUNCE_SW[AMOUNT_MOT][2];
+} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 18, {}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -74,6 +74,11 @@ void MOV_MOTORS() {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
+
+        if (V_P.SWITCH_OFF_MOT[i] == 1) {
+          digitalWrite(V_P.STEP_PINS[i], LOW);
+          break;
+        }
       }
     }
   }
@@ -85,39 +90,63 @@ void MOVE_HOME_POS() {
     // SETTING ROTATION.
     digitalWrite(V_P.DIR_PINS[i], LOW);
 
+    // ALLOWING THE INTERRUPT TO CHECK IF THE MOTOR IS RUNNING WITHIN THIS FUNCTION.
+    V_P.RUNNING_MOT[i] = 1;
+
     // RUNS TILL HIT OF LIMIT SWITCH.
-    while (V_P.CHECK[i] == 0) {
+    while (V_P.CHECK_SW[i] == 0) {
       digitalWrite(V_P.STEP_PINS[i], HIGH);
-      wait_us(MOT_DELAY * 1000);  //the delay() function is in ms so use that?
+      wait_us(MOT_DELAY * 1000);
       digitalWrite(V_P.STEP_PINS[i], LOW);
     }
 
+    V_P.RUNNING_MOT[i] = 0;
+
     // RESETTING CHECK.
-    V_P.CHECK[i] = 0;
-    Serial.println("E");
+    V_P.CHECK_SW[i] = 0;
   }
+  // FUNCTION FINISHED, CAN BE INITIATED AGAIN.
+  V_P.RUN_TO_HOME = 0;
 }
 
 // Taken advice from here: https://arduino.stackexchange.com/questions/22212/using-millis-and-micros-inside-an-interrupt-routine
-void LIMIT_PUSH(int ID) {
-  if (V_P.init_sw[ID] == 0) {
-    V_P.DEBOUNCE[ID][0] = micros();
-    V_P.init_sw[ID] = 1;
-  }
-
-  V_P.DEBOUNCE[ID][1] = micros();
-
-  if (V_P.init_sw[ID] == 1) {
-    if ((V_P.DEBOUNCE[ID][1] - V_P.DEBOUNCE[ID][0]) > 100000) {
-      V_P.CHECK[ID] = 1;
-      V_P.init_sw[ID] = 0;
-      Serial.println(ID);
+void DEBOUNCE(int ID, bool SWITCH_OR_BUTTON) {
+  switch (SWITCH_OR_BUTTON) {
+  case true:
+    if (V_P.init_sw[ID] == 0) {
+      V_P.DEBOUNCE_SW[ID][0] = micros();
+      V_P.init_sw[ID] = 1;
     }
+
+    V_P.DEBOUNCE_SW[ID][1] = micros();
+
+    if (V_P.init_sw[ID] == 1) {
+      if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 100000) {
+        // CHECK SWITCH IS NOT ALREADY INITIATED. 
+        if (V_P.CHECK_SW[ID] == 0) {
+          // IF IN HOME POS, SET CHECK TO 1 TO STOP MOTORS WHEN MOVING HOME.
+          if (V_P.RUNNING_MOT[ID] == 1) {
+            V_P.CHECK_SW[ID] = 1;
+          } else {
+            // SWITCH OFF MOTOR IF APPLYING TO MOVING OF THE PLATES.
+            V_P.SWITCH_OFF_MOT[ID] = 1;
+          }
+        }
+        V_P.init_sw[ID] = 0;
+      }
+    }
+    break;
+  
+  case false:
+    // CHECKS IF FUNCTION IS FINISHED, TO REDUCE INITIATING THE FUNCTION MORE THAN ONCE, FOR SPEED.
+    if (V_P.RUN_TO_HOME == 0) V_P.RUN_TO_HOME = 1;
+    break;
   }
 }
 
-void LIMIT_PUSH_1() {LIMIT_PUSH(0);}
-void LIMIT_PUSH_2() {LIMIT_PUSH(1);}
+void LIMIT_PUSH_1() {DEBOUNCE(0, true);}
+void LIMIT_PUSH_2() {DEBOUNCE(1, true);}
+void BUTTON_PUSH() {DEBOUNCE(0, false);}
 
 // TAKEN FROM HERE: https://forum.arduino.cc/t/using-a-variable-as-a-function-name/168313/4
 // GETTING ARRAY OF FUNCTIONS.
@@ -145,18 +174,18 @@ void setup() {
   
   // BUTTON PIN AND ATTACHING INTERRUPT.
   pinMode(V_P.BUTTON, INPUT);
-  attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), MOVE_HOME_POS, RISING);
+  attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), BUTTON_PUSH, RISING);
 
   // STARTING BY MOVING HOME.
-  // MOVE_HOME_POS();
+  MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  // CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
-  // CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
-  // MOV_MOTORS();
+  CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
+  CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
+  MOV_MOTORS();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
+  // Interrupt initiates this for button.
+  if (V_P.RUN_TO_HOME == 1) MOVE_HOME_POS();
 }
