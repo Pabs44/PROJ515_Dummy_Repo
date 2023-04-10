@@ -85,26 +85,34 @@ void MOV_MOTORS() {
 }
 
 void MOVE_HOME_POS() {
-// SELECTING MOTOR TO MOVE.
   for (int i = 0; i < AMOUNT_MOT; i++) {
     // SETTING ROTATION.
     digitalWrite(V_P.DIR_PINS[i], LOW);
-
     // ALLOWING THE INTERRUPT TO CHECK IF THE MOTOR IS RUNNING WITHIN THIS FUNCTION.
     V_P.RUNNING_MOT[i] = 1;
-
-    // RUNS TILL HIT OF LIMIT SWITCH.
-    while (V_P.CHECK_SW[i] == 0) {
-      digitalWrite(V_P.STEP_PINS[i], HIGH);
-      wait_us(MOT_DELAY * 1000);
-      digitalWrite(V_P.STEP_PINS[i], LOW);
-    }
-
-    V_P.RUNNING_MOT[i] = 0;
-
-    // RESETTING CHECK.
-    V_P.CHECK_SW[i] = 0;
   }
+
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0};
+
+  while (CNT_MOT_CHECK != AMOUNT_MOT) {
+    for (int i = 0; i < AMOUNT_MOT; i++) {
+      if (V_P.CHECK_SW[i] == 1) {
+        digitalWrite(V_P.STEP_PINS[i], LOW);
+        V_P.RUNNING_MOT[i] = 0;
+        if (VERIFY_CNT_CHECK[i] == 0) {
+          VERIFY_CNT_CHECK[i] = 1;
+          CNT_MOT_CHECK++;
+        }
+      } else {
+        digitalWrite(V_P.STEP_PINS[i], HIGH);
+        wait_us((MOT_DELAY * 1000) / AMOUNT_MOT);
+        digitalWrite(V_P.STEP_PINS[i], LOW);
+      }
+    }
+  }
+
+  for (int i = 0; i < AMOUNT_MOT; i++) V_P.CHECK_SW[i] = 0;
+
   // FUNCTION FINISHED, CAN BE INITIATED AGAIN.
   V_P.RUN_TO_HOME = 0;
 }
