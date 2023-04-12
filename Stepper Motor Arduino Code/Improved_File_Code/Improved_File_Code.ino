@@ -68,17 +68,25 @@ void CALC_MOV(float MOTOR_DIS, int MOT_ID, float COG_RAD) {
 
 // MOVING MOTORS.
 void MOV_MOTORS() {
-  for (int i = 0; i < AMOUNT_MOT; i++) {
-    if (V_P.TALLY[i] > 0) {
-      for (int j = 0; j < V_P.TALLY[i]; j++) {
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0}, TMP_TALLY[AMOUNT_MOT] = {0, 0};
+
+  while (CNT_MOT_CHECK != AMOUNT_MOT) {
+    for (int i = 0; i < AMOUNT_MOT; i++) {
+      if (TMP_TALLY[i] < V_P.TALLY[i]) {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
-
-        if (V_P.SWITCH_OFF_MOT[i] == 1) {
-          digitalWrite(V_P.STEP_PINS[i], LOW);
-          break;
+        TMP_TALLY[i]++;
+      } else if (TMP_TALLY[i] == V_P.TALLY[i]) {
+        digitalWrite(V_P.STEP_PINS[i], LOW);
+        if (VERIFY_CNT_CHECK[i] == 0) {
+          VERIFY_CNT_CHECK[i] = 1;
+          CNT_MOT_CHECK++;
         }
+      }
+      
+      if (V_P.SWITCH_OFF_MOT[i] == 1) {
+        digitalWrite(V_P.STEP_PINS[i], LOW);
       }
     }
   }
@@ -105,7 +113,7 @@ void MOVE_HOME_POS() {
         }
       } else {
         digitalWrite(V_P.STEP_PINS[i], HIGH);
-        wait_us((MOT_DELAY * 1000) / AMOUNT_MOT);
+        wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
       }
     }
