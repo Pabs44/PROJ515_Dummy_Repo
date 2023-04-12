@@ -83,10 +83,12 @@ void MOV_MOTORS() {
           VERIFY_CNT_CHECK[i] = 1;
           CNT_MOT_CHECK++;
         }
-      }
-      
-      if (V_P.SWITCH_OFF_MOT[i] == 1) {
+      } else if (V_P.SWITCH_OFF_MOT[i] == 1) {
         digitalWrite(V_P.STEP_PINS[i], LOW);
+        if (VERIFY_CNT_CHECK[i] == 0) {
+          VERIFY_CNT_CHECK[i] = 1;
+          CNT_MOT_CHECK++;
+        }
       }
     }
   }
