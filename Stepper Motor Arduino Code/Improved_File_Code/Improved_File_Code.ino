@@ -71,19 +71,19 @@ void MOV_MOTORS() {
   int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0}, TMP_TALLY[AMOUNT_MOT] = {0, 0};
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
+    // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      // IF TALLY OF MOVEMENTS OF MOTOR IS LESS THAN THE ACTUAL TALLY OF STEPS, DO:
       if (TMP_TALLY[i] < V_P.TALLY[i]) {
+        // STEP AND INCREASE TALLY OF MOVEMENTS OF THE MOTOR.
         digitalWrite(V_P.STEP_PINS[i], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.STEP_PINS[i], LOW);
         TMP_TALLY[i]++;
-      } else if (TMP_TALLY[i] == V_P.TALLY[i]) {
-        digitalWrite(V_P.STEP_PINS[i], LOW);
-        if (VERIFY_CNT_CHECK[i] == 0) {
-          VERIFY_CNT_CHECK[i] = 1;
-          CNT_MOT_CHECK++;
-        }
-      } else if (V_P.SWITCH_OFF_MOT[i] == 1) {
+      } 
+      // IF TALLY OF MOVEMENTS OF MOTOR IS EQUAL TO ACTUAL TALLY OR THE LIMIT SWITCH HAS BEEN PRESSED, DO:
+      if ((TMP_TALLY[i] == V_P.TALLY[i]) || (V_P.SWITCH_OFF_MOT[i] == 1)) {
+        // STOP THE MOTOR, AND ADD TO CNT, TO STATE IT HAS REACHED ITS DESTINATION.
         digitalWrite(V_P.STEP_PINS[i], LOW);
         if (VERIFY_CNT_CHECK[i] == 0) {
           VERIFY_CNT_CHECK[i] = 1;
@@ -91,6 +91,11 @@ void MOV_MOTORS() {
         }
       }
     }
+  }
+
+  // RESET THE LIMIT SWITCH VARIABLE IF IT BEEN PRESSED AGAIN.
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    V_P.SWITCH_OFF_MOT[i] = 0;
   }
 }
 
@@ -164,13 +169,23 @@ void DEBOUNCE(int ID, bool SWITCH_OR_BUTTON) {
 
 void LIMIT_PUSH_1() {DEBOUNCE(0, true);}
 void LIMIT_PUSH_2() {DEBOUNCE(1, true);}
+void LIMIT_PUSH_3() {DEBOUNCE(2, true);}
+void LIMIT_PUSH_4() {DEBOUNCE(3, true);}
+void LIMIT_PUSH_5() {DEBOUNCE(4, true);}
+void LIMIT_PUSH_6() {DEBOUNCE(5, true);}
+void LIMIT_PUSH_7() {DEBOUNCE(6, true);}
+void LIMIT_PUSH_8() {DEBOUNCE(7, true);}
+void LIMIT_PUSH_9() {DEBOUNCE(8, true);}
+void LIMIT_PUSH_10() {DEBOUNCE(9, true);}
+void LIMIT_PUSH_11() {DEBOUNCE(10, true);}
+void LIMIT_PUSH_12() {DEBOUNCE(11, true);}
 void BUTTON_PUSH() {DEBOUNCE(0, false);}
 
 // TAKEN FROM HERE: https://forum.arduino.cc/t/using-a-variable-as-a-function-name/168313/4
 // GETTING ARRAY OF FUNCTIONS.
 typedef void (*FuncPtr)(void);
 
-FuncPtr LIMIT_PUSH_FUNC[] = {&LIMIT_PUSH_1, &LIMIT_PUSH_2};
+FuncPtr LIMIT_PUSH_FUNC[] = {&LIMIT_PUSH_1, &LIMIT_PUSH_2, &LIMIT_PUSH_3, &LIMIT_PUSH_4, &LIMIT_PUSH_5, &LIMIT_PUSH_6, &LIMIT_PUSH_7, &LIMIT_PUSH_8, &LIMIT_PUSH_9, &LIMIT_PUSH_10, &LIMIT_PUSH_11, &LIMIT_PUSH_12};
 
 void setup() {
   Serial.begin(115200);
