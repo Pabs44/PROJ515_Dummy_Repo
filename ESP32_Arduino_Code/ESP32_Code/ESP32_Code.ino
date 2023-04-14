@@ -2,25 +2,34 @@
 
 BluetoothSerial SerialBT;
 
-void SEND(String Send_data) {
+void SEND_BT(String Send_data) {
   SerialBT.print(Send_data);
 }
 
-void RECV() {
+void RECV_BT() {
   if (SerialBT.available()) {
     char Recv_data = SerialBT.read();
     Serial.write(Recv_data);
   }
 }
 
-void READ_FILE() {
+void READ_FILE_BT() {
   uint8_t msg = 1;
   SerialBT.write(msg);
   SerialBT.println(1);
   while (!SerialBT.available());
+  
+  String Recv_data = SerialBT.readString();
+  Serial.println(Recv_data);
+}
 
-  if (SerialBT.available()) {
-    String Recv_data = SerialBT.readString();
+void SEND_ARD() {
+  
+}
+
+void RECV_ARD() {
+  if (Serial.available()) {
+    String Recv_data = Serial.readString();
     Serial.println(Recv_data);
   }
 }
@@ -32,6 +41,6 @@ void setup() {
 }
 
 void loop() {
-  READ_FILE();
+  READ_FILE_BT();
   delay(1000);
 }

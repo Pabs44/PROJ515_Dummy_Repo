@@ -189,6 +189,8 @@ FuncPtr LIMIT_PUSH_FUNC[] = {&LIMIT_PUSH_1, &LIMIT_PUSH_2, &LIMIT_PUSH_3, &LIMIT
 
 void setup() {
   Serial.begin(115200);
+  // For ESP32 UART Communication.
+  Serial2.begin(115200);
 
   // PINS OF TRIG AND ECHO, OF EACH SENSOR.
   for (int i = 0; i < AMOUNT_ULTRA; i++) {
