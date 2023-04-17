@@ -3,10 +3,8 @@
 #define MOT_DELAY 1
 
 struct RECVD_DISTANCES {
-  float MOTOR_1;
-  float MOTOR_2;
-} MOV_DIST = {100, 100};
-
+  float MOTOR_DIST_ARRAY[12];
+} MOVE_DIST;
 struct VARS_PINS {
   float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
   int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT];
@@ -132,6 +130,66 @@ void MOVE_HOME_POS() {
   V_P.RUN_TO_HOME = 0;
 }
 
+void RECV_DATA() {
+  // Waits for response from ESP32.
+  while (Serial2.available() == 0) {}
+  // Send back a symbol to verify that it had received its transmission.
+  Serial2.print('$');
+
+  noInterrupts(); // As creation of variables is quite critical, there is no interrupts.
+  int cnt = 0, p_buf = 0;
+  // Enough dedicated space for 100 cm plus two dp.
+  char TEMP_CHAR_ARRAY[9];
+  // To collate the value of the characters from UART.
+  String COLLATE = "";
+  // RUN the while loop till false.
+  bool END_LOOP = true;
+  interrupts();
+
+  // Runs till all motor measurements have been recieved.
+  while (END_LOOP) {
+    // IF something is in the UART buffer on device.
+    if (Serial2.available() > 0) {
+      // Read that value.
+      char Recv_Data = Serial2.read();
+
+      // IF the value is a straight line.
+      if (Recv_Data == '|') {
+        noInterrupts(); // Critical section, as variables are being modified.
+        if (p_buf > 0) { // If the amount of chars in array is more than 0.
+          // Collate them into a string.
+          for (int i = 0; i < p_buf; i++) COLLATE += TEMP_CHAR_ARRAY[i];
+          // Then convert it into a float for the motor distance array.
+          MOVE_DIST.MOTOR_DIST_ARRAY[(cnt - 1)] = COLLATE.toFloat();
+          // Change the string value to null.
+          COLLATE = "";
+          // Reset the char array.
+          p_buf = 0;
+        }
+        // Move onto next motor distance data.
+        cnt++;
+        interrupts();
+        // IF all motor distances have been given distances.
+      } else if (cnt == (AMOUNT_MOT + 1)) {
+        // Send back that all distances have been recieved.
+        Serial2.print(1);
+        noInterrupts(); // Another critical section where variables are modified so no interrupts.
+        END_LOOP = false; // END the while loop.
+        cnt = 0; // Reset to first motor, for next transmission.
+        interrupts();
+        // IF data recieved is not Dollar symbol, which also includes '|'. This means that it is the actual char value.
+      } else if (Recv_Data != '$') {
+        noInterrupts(); // Another critical section where variables are modified so no interrupts.
+        // Set the character as the position in the buffer where the value is dependant on how long ago was '|'.
+        TEMP_CHAR_ARRAY[p_buf] = Recv_Data;
+        // After setting, move to next position.
+        p_buf++;
+        interrupts();
+      }
+    }
+  }
+}
+
 // Taken advice from here: https://arduino.stackexchange.com/questions/22212/using-millis-and-micros-inside-an-interrupt-routine
 void DEBOUNCE(int ID, bool SWITCH_OR_BUTTON) {
   switch (SWITCH_OR_BUTTON) {
@@ -212,15 +270,22 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), BUTTON_PUSH, RISING);
 
   // STARTING BY MOVING HOME.
-  MOVE_HOME_POS();
+  // MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
-  CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
-  MOV_MOTORS();
+  // CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
+  // CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
+  // MOV_MOTORS();
 }
 
 void loop() {
   // Interrupt initiates this for button.
   if (V_P.RUN_TO_HOME == 1) MOVE_HOME_POS();
+
+  // TESTING RECIEVE DATA.
+  RECV_DATA();
+  // SEE if it is formulated correctly.
+  Serial.println(MOVE_DIST.MOTOR_DIST_ARRAY[0]);
+  Serial.println(MOVE_DIST.MOTOR_DIST_ARRAY[1]);
+  delay(1000);
 }
