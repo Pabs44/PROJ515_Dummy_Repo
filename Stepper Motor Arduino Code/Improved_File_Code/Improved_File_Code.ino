@@ -133,7 +133,7 @@ void MOVE_HOME_POS() {
 
 void RECV_DATA() {
   // Waits for response from ESP32.
-  while (Serial2.available() == 0) {}
+  while ((Serial2.available() == 0) && (Serial2.read() == '$')) {}
   // Send back a symbol to verify that it had received its transmission.
   Serial2.print('$');
 
@@ -173,7 +173,7 @@ void RECV_DATA() {
         // IF all motor distances have been given distances.
       } else if (cnt == (AMOUNT_MOT + 1)) {
         // Send back that all distances have been recieved.
-        Serial2.print(1);
+        Serial2.print('1');
         noInterrupts(); // Another critical section where variables are modified so no interrupts.
         END_LOOP = false; // END the while loop.
         cnt = 0; // Reset to first motor, for next transmission.
