@@ -3,15 +3,23 @@
 #define MOT_DELAY 1
 
 struct RECVD_DISTANCES {
-  float MOTOR_DIST_ARRAY[12];
-} MOVE_DIST;
+  // NECK, CHEST, WAIST, HIP.
+  float MOTOR_CIR_DIST_ARRAY[4];
+} MOVE_DIST = {88.5, 150.2, 130.3, 135.5};
 
 struct VARS_PINS {
-  float CHEST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_DIST[AMOUNT_MOT];
+  float CHEST_WAIST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_CIRC_DIST[4], MIN_CIRC_DIST[4];
   int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT];
   volatile int CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT], RUNNING_MOT[AMOUNT_MOT], SWITCH_OFF_MOT[AMOUNT_MOT], RUN_TO_HOME;
   volatile long DEBOUNCE_SW[AMOUNT_MOT][2];
-} V_P = {4.1, 2.5, {1.8, 0.9, 0.45, 0.225, 0.1125}, {25, 25}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 18, {}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
+} V_P = {4.1, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {250, 250, 250, 250}, {0, 0, 0, 0}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 18, {}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
+
+enum BODY_PART {
+  NECK = 0,
+  CHEST,
+  WAIST,
+  HIP 
+};
 
 void wait_us(int DURATION) {
   int us_previousTime = micros();
@@ -40,27 +48,28 @@ float CHECK_DISTANCE_ULTRA(int ULTRA_ID) {
   return DIST;
 }
 
-void CALC_MOV(float MOTOR_DIS, int MOT_ID, float COG_RAD) {
+void CALC_MOV(float MOTOR_CIRC_DIS, int MOT_ID, int ULTRA_ID, int PART_BODY, float COG_RAD) {
   noInterrupts();
 
   // CHECKING IF DISTANCE FROM BLUETOOTH CONTROLLER, IS POSSIBLE AND IS LIMITED IF NOT.
-  MOTOR_DIS = (MOTOR_DIS > V_P.MAX_DIST[(MOT_ID - 1)]) ? V_P.MAX_DIST[(MOT_ID - 1)] : MOTOR_DIS;
+  MOTOR_CIRC_DIS = (MOTOR_CIRC_DIS > V_P.MAX_CIRC_DIST[PART_BODY]) ? V_P.MAX_CIRC_DIST[PART_BODY] : MOTOR_CIRC_DIS;
+  MOTOR_CIRC_DIS = (MOTOR_CIRC_DIS < V_P.MIN_CIRC_DIST[PART_BODY]) ? V_P.MIN_CIRC_DIST[PART_BODY] : MOTOR_CIRC_DIS;
 
   // MOVE PLATES ACCORDING TO MEASUREMENTS.
-  if (CHECK_DISTANCE_ULTRA(1) > MOTOR_DIS) {
-    MOTOR_DIS = CHECK_DISTANCE_ULTRA(1) - MOTOR_DIS;
+  if (CHECK_DISTANCE_ULTRA(ULTRA_ID) > MOTOR_CIRC_DIS) {
+    MOTOR_CIRC_DIS = CHECK_DISTANCE_ULTRA(ULTRA_ID) - MOTOR_CIRC_DIS;
 
     // ANTI-CLKWISE, MOVING IN.
     digitalWrite(V_P.DIR_PINS[(MOT_ID - 1)], LOW);
-  } else if (CHECK_DISTANCE_ULTRA(1) < MOTOR_DIS) {
-    MOTOR_DIS = MOTOR_DIS - CHECK_DISTANCE_ULTRA(1);
+  } else if (CHECK_DISTANCE_ULTRA(ULTRA_ID) < MOTOR_CIRC_DIS) {
+    MOTOR_CIRC_DIS = MOTOR_CIRC_DIS - CHECK_DISTANCE_ULTRA(1);
 
     // CLKWISE, MOVING OUT.
     digitalWrite(V_P.DIR_PINS[(MOT_ID - 1)], HIGH);
   }
 
   // CALCULATING AND STORING STEPS.
-  V_P.TALLY[(MOT_ID - 1)] = (int)((MOTOR_DIS / (COG_RAD * (3.14 / 180))) / V_P.DEG_SIZE[0]);
+  V_P.TALLY[(MOT_ID - 1)] = (int)((sqrt((MOTOR_CIRC_DIS / 3.14)) / (COG_RAD * (3.14 / 180))) / V_P.DEG_SIZE[0]);
 
   interrupts();
 }
@@ -161,7 +170,7 @@ void RECV_DATA() {
           // Collate them into a string.
           for (int i = 0; i < p_buf; i++) COLLATE += TEMP_CHAR_ARRAY[i];
           // Then convert it into a float for the motor distance array.
-          MOVE_DIST.MOTOR_DIST_ARRAY[(cnt - 1)] = COLLATE.toFloat();
+          MOVE_DIST.MOTOR_CIR_DIST_ARRAY[(cnt - 1)] = COLLATE.toFloat();
           // Change the string value to null.
           COLLATE = "";
           // Reset the char array.
@@ -271,22 +280,17 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(V_P.BUTTON), BUTTON_PUSH, RISING);
 
   // STARTING BY MOVING HOME.
-  // MOVE_HOME_POS();
+  MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  // CALC_MOV(MOV_DIST.MOTOR_1, 1, V_P.NECK_COG_RAD);
-  // CALC_MOV(MOV_DIST.MOTOR_2, 2, V_P.NECK_COG_RAD);
-  // MOV_MOTORS();
+  CALC_MOV(MOVE_DIST.MOTOR_CIR_DIST_ARRAY[0], 1, 1, NECK, V_P.NECK_COG_RAD);
+  CALC_MOV(MOVE_DIST.MOTOR_CIR_DIST_ARRAY[1], 2, 1, NECK, V_P.NECK_COG_RAD);
+  MOV_MOTORS();
 }
 
 void loop() {
   // Interrupt initiates this for button.
   if (V_P.RUN_TO_HOME == 1) MOVE_HOME_POS();
-
-  // TESTING RECIEVE DATA.
-  RECV_DATA();
-  // SEE if it is formulated correctly.
-  Serial.println(MOVE_DIST.MOTOR_DIST_ARRAY[0]);
-  Serial.println(MOVE_DIST.MOTOR_DIST_ARRAY[1]);
-  delay(1000);
+  // Detecting if data is being recieved. (Needs testing)
+  if ((Serial2.available()) && (Serial2.read() == '$')) RECV_DATA();
 }
