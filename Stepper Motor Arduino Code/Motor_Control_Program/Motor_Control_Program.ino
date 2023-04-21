@@ -5,14 +5,14 @@
 struct RECVD_DISTANCES {
   // NECK, CHEST, WAIST, HIP.
   float MOTOR_CIR_DIST_ARRAY[4];
-} MOVE_DIST = {88.5, 150.2, 130.3, 135.5};
+} MOVE_DIST = {400.5, 925.3, 735.8, 960.4};
 
 struct VARS_PINS {
   float FRONT_COG_RAD, CHEST_WAIST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_MOT[AMOUNT_MOT], MIN_MOT[AMOUNT_MOT], MAX_CIRC_DIST[4], MIN_CIRC_DIST[4];
   int STEP_PINS[AMOUNT_MOT], DIR_PINS[AMOUNT_MOT], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT];
   volatile int CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT], RUNNING_MOT[AMOUNT_MOT], SWITCH_OFF_MOT[AMOUNT_MOT], RUN_TO_HOME;
   volatile long DEBOUNCE_SW[AMOUNT_MOT][2];
-} V_P = {4.1, 8.38, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {}, {}, {250, 250, 250, 250}, {0, 0, 0, 0}, {2, 4}, {3, 5}, {19, 20}, {6, 7}, 18, {}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
+} V_P = {4.1, 8.38, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {}, {0, 0}, {440, 1020, 840, 1070}, {350, 840, 660, 890}, {2, 4}, {3, 5}, {45, 20}, {6, 7}, 18, {}, {0, 0}, {0, 0}, {0, 0}, {0, 0}, 0};
 
 enum BODY_PART {NECK = 0, CHEST, WAIST, HIP};
 
@@ -83,11 +83,27 @@ void CALC_MOVES() {
     } else {
       VERIFY_ALL_CIR++;
     }
-  }
 
-  if (VERIFY_ALL_CIR == sizeof(MOVE_DIST.MOTOR_CIR_DIST_ARRAY)) {
-    MOTOR_DIS = sqrt(MOTOR_CIRC_DIS / 3.14);
-    V_P.TALLY[i] = (int)(MOTOR_DIS / (COG_RAD * (3.14 / 180))) / V_P.DEG_SIZE[0]);
+    if (VERIFY_ALL_CIR == sizeof(MOVE_DIST.MOTOR_CIR_DIST_ARRAY)) {
+      // Calculating the radius that the plate needs to move to.
+      float MOTOR_DIS = sqrt((V_P.MAX_CIRC_DIST[PART_BODY] - MOTOR_CIRC_DIS) / 3.14);
+
+      // CONFIGURING MOTORS.
+      switch (i) {
+        case 0:
+          if (MOTOR_DIS > V_P.MAX_MOT[0]) {
+            Serial.println("Distance for " + TEXT_BODY_PART + " motor is not possible.");
+          } else {
+            COG_RAD = V_P.NECK_COG_RAD;
+          }
+          break;
+
+        case 1:
+          if ((MOTOR_DIS > V_P.MAX_MOT[1]) || ()
+      }
+
+      V_P.TALLY[i] = (int)(MOTOR_DIS / (COG_RAD * (3.14 / 180))) / V_P.DEG_SIZE[0]);
+    }
   }
 
   interrupts();
@@ -100,6 +116,8 @@ void MOV_MOTORS() {
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      // READING SPECIFIC SWITCH.
+      if (digitalRead(V_P.LIMIT_PINS[i]) == 1) DEBOUNCE_SW(i);
         // IF TALLY OF MOVEMENTS OF MOTOR IS LESS THAN THE ACTUAL TALLY OF STEPS, DO:
       if (TMP_TALLY[i] < V_P.TALLY[i]) {
         // STEP AND INCREASE TALLY OF MOVEMENTS OF THE MOTOR.
@@ -138,6 +156,8 @@ void MOVE_HOME_POS() {
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      // READING SPECIFIC SWITCH.
+      if (digitalRead(V_P.LIMIT_PINS[i]) == 1) DEBOUNCE_SW(i);
       if (V_P.CHECK_SW[i] == 1) {
         digitalWrite(V_P.STEP_PINS[i], LOW);
         V_P.RUNNING_MOT[i] = 0;
@@ -160,59 +180,32 @@ void MOVE_HOME_POS() {
 }
 
 // Taken advice from here: https://arduino.stackexchange.com/questions/22212/using-millis-and-micros-inside-an-interrupt-routine
-void DEBOUNCE(int ID, bool SWITCH_OR_BUTTON) {
-  switch (SWITCH_OR_BUTTON) {
-  case true:
-    if (V_P.init_sw[ID] == 0) {
-      V_P.DEBOUNCE_SW[ID][0] = micros();
-      V_P.init_sw[ID] = 1;
-    }
+void DEBOUNCE_SW(int ID) {
+  if (V_P.init_sw[ID] == 0) {
+    V_P.DEBOUNCE_SW[ID][0] = micros();
+    V_P.init_sw[ID] = 1;
+  }
 
-    V_P.DEBOUNCE_SW[ID][1] = micros();
+  V_P.DEBOUNCE_SW[ID][1] = micros();
 
-    if (V_P.init_sw[ID] == 1) {
-      if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 100000) {
-        // CHECK SWITCH IS NOT ALREADY INITIATED. 
-        if (V_P.CHECK_SW[ID] == 0) {
-          // IF IN HOME POS, SET CHECK TO 1 TO STOP MOTORS WHEN MOVING HOME.
-          if (V_P.RUNNING_MOT[ID] == 1) {
-            V_P.CHECK_SW[ID] = 1;
-          } else {
-            // SWITCH OFF MOTOR IF APPLYING TO MOVING OF THE PLATES.
-            V_P.SWITCH_OFF_MOT[ID] = 1;
-          }
+  if (V_P.init_sw[ID] == 1) {
+    if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 100000) {
+      // CHECK SWITCH IS NOT ALREADY INITIATED. 
+      if (V_P.CHECK_SW[ID] == 0) {
+        // IF IN HOME POS, SET CHECK TO 1 TO STOP MOTORS WHEN MOVING HOME.
+        if (V_P.RUNNING_MOT[ID] == 1) {
+          V_P.CHECK_SW[ID] = 1;
+        } else {
+          // SWITCH OFF MOTOR IF APPLYING TO MOVING OF THE PLATES.
+          V_P.SWITCH_OFF_MOT[ID] = 1;
         }
-        V_P.init_sw[ID] = 0;
       }
+      V_P.init_sw[ID] = 0;
     }
-    break;
-  
-  case false:
-    // CHECKS IF FUNCTION IS FINISHED, TO REDUCE INITIATING THE FUNCTION MORE THAN ONCE, FOR SPEED.
-    if (V_P.RUN_TO_HOME == 0) V_P.RUN_TO_HOME = 1;
-    break;
   }
 }
 
-void LIMIT_PUSH_1() {DEBOUNCE(0, true);}
-void LIMIT_PUSH_2() {DEBOUNCE(1, true);}
-void LIMIT_PUSH_3() {DEBOUNCE(2, true);}
-void LIMIT_PUSH_4() {DEBOUNCE(3, true);}
-void LIMIT_PUSH_5() {DEBOUNCE(4, true);}
-void LIMIT_PUSH_6() {DEBOUNCE(5, true);}
-void LIMIT_PUSH_7() {DEBOUNCE(6, true);}
-void LIMIT_PUSH_8() {DEBOUNCE(7, true);}
-void LIMIT_PUSH_9() {DEBOUNCE(8, true);}
-void LIMIT_PUSH_10() {DEBOUNCE(9, true);}
-void LIMIT_PUSH_11() {DEBOUNCE(10, true);}
-void LIMIT_PUSH_12() {DEBOUNCE(11, true);}
-void BUTTON_PUSH() {DEBOUNCE(0, false);}
-
-// TAKEN FROM HERE: https://forum.arduino.cc/t/using-a-variable-as-a-function-name/168313/4
-// GETTING ARRAY OF FUNCTIONS.
-typedef void (*FuncPtr)(void);
-
-FuncPtr LIMIT_PUSH_FUNC[] = {&LIMIT_PUSH_1, &LIMIT_PUSH_2, &LIMIT_PUSH_3, &LIMIT_PUSH_4, &LIMIT_PUSH_5, &LIMIT_PUSH_6, &LIMIT_PUSH_7, &LIMIT_PUSH_8, &LIMIT_PUSH_9, &LIMIT_PUSH_10, &LIMIT_PUSH_11, &LIMIT_PUSH_12};
+void BUTTON_PUSH() {if (V_P.RUN_TO_HOME == 0) V_P.RUN_TO_HOME = 1;}
 
 void setup() {
   Serial.begin(115200);
@@ -230,8 +223,6 @@ void setup() {
     pinMode(V_P.DIR_PINS[j], OUTPUT);
     pinMode(V_P.STEP_PINS[j], OUTPUT);
     pinMode(V_P.LIMIT_PINS[j], INPUT);
-    // ATTACHING INTERRUPTS.
-    attachInterrupt(digitalPinToInterrupt(V_P.LIMIT_PINS[j]), LIMIT_PUSH_FUNC[j], RISING);
   }
   
   // BUTTON PIN AND ATTACHING INTERRUPT.
@@ -242,8 +233,8 @@ void setup() {
   MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  CALC_MOV();
-  MOV_MOTORS();
+  // CALC_MOV();
+  // MOV_MOTORS();
 }
 
 void loop() {
