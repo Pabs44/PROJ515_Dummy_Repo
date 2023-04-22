@@ -43,69 +43,73 @@ float CHECK_DISTANCE_ULTRA(int ULTRA_ID) {
   return DIST;
 }
 
-void CALC_MOVES() {
-  noInterrupts();
-
-  String TEXT_BODY_PART = "";
-  int PART_BODY, VERIFY_ALL_CIR = 0;
-  float MOTOR_CIRC_DIS;
-  for (int i = 0; i < sizeof(MOVE_DIST.MOTOR_CIR_DIST_ARRAY); i++) {
-    switch (i) {
-      case 0:
-        PART_BODY = NECK;
-        MOTOR_CIRC_DIS = MOVE_DIST.MOTOR_CIR_DIST_ARRAY[0];
-        TEXT_BODY_PART = "NECK";
-        break;
-
-      case 1:
-        PART_BODY = CHEST;
-        MOTOR_CIRC_DIS = MOVE_DIST.MOTOR_CIR_DIST_ARRAY[1];
-        TEXT_BODY_PART = "CHEST";
-        break;
-
-      case 2:
-        PART_BODY = WAIST;
-        MOTOR_CIRC_DIS = MOVE_DIST.MOTOR_CIR_DIST_ARRAY[2];
-        TEXT_BODY_PART = "WAIST";
-        break;
-
-      case 3:
-        PART_BODY = HIP;
-        MOTOR_CIRC_DIS = MOVE_DIST.MOTOR_CIR_DIST_ARRAY[3];
-        TEXT_BODY_PART = "HIP";
-        break;
-    }
-
-    if (MOTOR_CIRC_DIS > V_P.MAX_CIRC_DIST[PART_BODY]) {
-      Serial.println("Distance for " + TEXT_BODY_PART + " goes over maximum limit.");
-    } else if (MOTOR_CIRC_DIS < V_P.MIN_CIRC_DIST[PART_BODY]) {
-      Serial.println("Distance for " + TEXT_BODY_PART + " goes over minimum limit.");
+void GROUP_MOTORS(int MEASUREMENT_GROUP, float PERCENTAGE) {
+  int MAX_STEPS[4];
+  // SETTING ALL MOTORS TO BE MOVING OUT.
+  for (int i = 0; i < 12; i++) {
+    if (i == 0) { // IF NECK.
+      digitalWrite(V_P.DIR_PINS[i], HIGH);
     } else {
-      VERIFY_ALL_CIR++;
-    }
-
-    if (VERIFY_ALL_CIR == sizeof(MOVE_DIST.MOTOR_CIR_DIST_ARRAY)) {
-      // Calculating the radius that the plate needs to move to.
-      float MOTOR_DIS = sqrt((V_P.MAX_CIRC_DIST[PART_BODY] - MOTOR_CIRC_DIS) / 3.14);
-
-      // CONFIGURING MOTORS.
-      switch (i) {
-        case 0:
-          if (MOTOR_DIS > V_P.MAX_MOT[0]) {
-            Serial.println("Distance for " + TEXT_BODY_PART + " motor is not possible.");
-          } else {
-            COG_RAD = V_P.NECK_COG_RAD;
-          }
-          break;
-
-        case 1:
-          if ((MOTOR_DIS > V_P.MAX_MOT[1]) || ()
-      }
-
-      V_P.TALLY[i] = (int)(MOTOR_DIS / (COG_RAD * (3.14 / 180))) / V_P.DEG_SIZE[0]);
+      digitalWrite(V_P.DIR_PINS[i], LOW);
     }
   }
+  switch (MEASUREMENT_GROUP) {
+    case NECK:
+      MAX_STEPS[0] = 250;
+      V_P.TALLY[0] = (int)(MAX_STEPS[0] * PERCENTAGE);
+      break;
+    
+    case CHEST:
+      MAX_STEPS[0] = 250, MAX_STEPS[1] = 185, MAX_STEPS[2] = 250, MAX_STEPS[3] = 185;
+      for (int i = 1; i < 5; i++) V_P.TALLY[i] = (int)(MAX_STEPS[(i - 1)] * PERCENTAGE);
+      break;
 
+    case WAIST:
+      MAX_STEPS[0] = 250, MAX_STEPS[1] = 185, MAX_STEPS[2] = 250, MAX_STEPS[3] = 185;
+      for (int i = 5; i < 9; i++) V_P.TALLY[i] = (int)(MAX_STEPS[(i - 5)] * PERCENTAGE);
+      break;
+
+    case HIP:
+      MAX_STEPS[0] = 185, MAX_STEPS[1] = 250, MAX_STEPS[2] = 185;
+      for (int i = 9; i < 12; i++) V_P.TALLY[i] = (int)(MAX_STEPS[(i - 9)] * PERCENTAGE);
+      break;
+  }
+}
+
+void CALC_MOVES() {
+  noInterrupts();
+  String TEXT_PART_BODY = "";
+  for (int i = 0; i < 4; i++) {
+    switch (i) {
+      case NECK:
+        TEXT_PART_BODY = "NECK";
+        break;
+
+      case CHEST:
+        TEXT_PART_BODY = "CHEST";
+        break;
+
+      case WAIST:
+        TEXT_PART_BODY = "WAIST";
+        break;
+
+      case HIP:
+        TEXT_PART_BODY = "HIP";
+        break;
+    }
+    
+    if (MOVE_DIST.MOTOR_CIR_DIST_ARRAY[i] > V_P.MAX_CIRC_DIST[i]) {
+      Serial.println("Circumference measurement for " + TEXT_PART_BODY + " is over the maximum.");
+    } else if (MOVE_DIST.MOTOR_CIR_DIST_ARRAY[i] < V_P.MIN_CIRC_DIST[i]) {
+      Serial.println("Circumference measurement for " + TEXT_PART_BODY + " is under the minimum.");
+    } else {
+      float DIFF_LIMITS = V_P.MAX_CIRC_DIST[i] - V_P.MIN_CIRC_DIST[i];
+      float DIFF_DES_MIN = MOVE_DIST.MOTOR_CIR_DIST_ARRAY[i] - V_P.MIN_CIRC_DIST[i];
+
+      float PERCENTAGE = DIFF_DES_MIN / DIFF_LIMITS;
+      GROUP_MOTORS(i, PERCENTAGE);
+    }
+  }
   interrupts();
 }
 
@@ -146,8 +150,12 @@ void MOV_MOTORS() {
 
 void MOVE_HOME_POS() {
   for (int i = 0; i < AMOUNT_MOT; i++) {
-    // SETTING ROTATION.
-    digitalWrite(V_P.DIR_PINS[i], LOW);
+    // SETTING ROTATION TO MOVE IN.
+    if (i == 0) { // IF NECK.
+      digitalWrite(V_P.DIR_PINS[i], LOW);
+    } else {
+      digitalWrite(V_P.DIR_PINS[i], HIGH);
+    }
     // ALLOWING THE INTERRUPT TO CHECK IF THE MOTOR IS RUNNING WITHIN THIS FUNCTION.
     V_P.RUNNING_MOT[i] = 1;
   }
@@ -189,7 +197,7 @@ void DEBOUNCE_SW(int ID) {
   V_P.DEBOUNCE_SW[ID][1] = micros();
 
   if (V_P.init_sw[ID] == 1) {
-    if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 100000) {
+    if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 50000) {
       // CHECK SWITCH IS NOT ALREADY INITIATED. 
       if (V_P.CHECK_SW[ID] == 0) {
         // IF IN HOME POS, SET CHECK TO 1 TO STOP MOTORS WHEN MOVING HOME.
@@ -233,8 +241,9 @@ void setup() {
   MOVE_HOME_POS();
 
   // CALCULATING AND MOVING MOTORS.
-  // CALC_MOV();
-  // MOV_MOTORS();
+  CALC_MOVES();
+  delay(1000);
+  MOV_MOTORS();
 }
 
 void loop() {
