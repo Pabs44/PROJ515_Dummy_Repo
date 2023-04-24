@@ -170,9 +170,8 @@ void MOVE_HOME_POS() {
       digitalWrite(V_P.MOTOR_PINS[i][1], HIGH);
     }
 
-    if (V_P.init_sw[i] >= 1) {
-      V_P.init_sw[i] = 0;
-    }
+    V_P.init_sw[i] = 0;
+    V_P.CHECK_SW[i] = 0;
   }
 
   int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0};
@@ -202,22 +201,14 @@ void MOVE_HOME_POS() {
 void DEBOUNCE_SW(int ID) {
   if (V_P.init_sw[ID] == 0) {
     V_P.DEBOUNCE_SW[ID][0] = micros();
-    Serial.print("ID = ");
-    Serial.println(ID);
     V_P.init_sw[ID] = 1;
   }
 
-  Serial.println(V_P.init_sw[ID]);
-  Serial.println(V_P.CHECK_SW[ID]);
-
   V_P.DEBOUNCE_SW[ID][1] = micros();
 
-  Serial.print("Debounce microsecond difference = ");
-  Serial.println((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]));
   if (V_P.init_sw[ID] == 1) {
     if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 10000) {
       // CHECK SWITCH IS NOT ALREADY INITIATED. 
-      Serial.println("IN DEBOUNCE.");
       if (V_P.CHECK_SW[ID] == 0) V_P.CHECK_SW[ID] = 1;
       V_P.init_sw[ID] = 0;
     }    
