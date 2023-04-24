@@ -34,7 +34,7 @@
   <Calibrate_FixPrincipalPointAtTheCenter> 1 </Calibrate_FixPrincipalPointAtTheCenter>
   
   <!-- The name of the output log file. -->
-  <Write_outputFileName>"/home/pablo/GitHub/PROJ515_Dummy_Repo/qt-projects/build-visual-odometry-Desktop-Release/camera_calibration_fourth.xml"</Write_outputFileName>
+  <Write_outputFileName>"/home/pablo/GitHub/PROJ515_Dummy_Repo/qt-projects/build-visual-odometry-Desktop-Release/calibration_output_vid.xml"</Write_outputFileName>
   <!-- If true (non-zero) we write to the output file the feature points.-->
   <Write_DetectedFeaturePoints>1</Write_DetectedFeaturePoints>
   <!-- If true (non-zero) we write to the output file the extrinsic camera parameters.-->

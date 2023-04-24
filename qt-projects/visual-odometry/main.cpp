@@ -12,22 +12,22 @@ struct Vector3D{
 const string fileVid = "./photos/manuel.mp4";
 const string filePoints = "points.xml";                     //Output file for feature location within image space
 const string fileERT = "ERT.xml";                           //Output file for essential, rotation, and translation matrices
-const string calib_file = "calibration_output.xml";       //Camera calibration file for images at full resolution of Samsung Galaxy S20 FE 5G camera
-//const string calib_file = "calibration_output_fourth.xml";  //Camera calibration file for images at 1/4th resolution of Samsung Galaxy S20 FE 5G camera
-const double knownUnit = 1900;                              //Known distance between two points in mm --> 12.5 cm for the mouse / 190 cm for Tom height / 24.5 cm for James chest to neck distance
+const string calib_file = "calibration_output_vid.xml";     //Camera calibration file for video at full resolution (16:9) of Samsung Galaxy S20 FE 5G camera
+//const string calib_file = "calibration_output.xml";         //Camera calibration file for images at full resolution (4:3) of Samsung Galaxy S20 FE 5G camera
+//const string calib_file = "calibration_output_fourth.xml";  //Camera calibration file for images at 1/4th resolution (4:3) of Samsung Galaxy S20 FE 5G camera
+const double knownUnit = 1825;                              //Known distance between two points in mm --> 12.5 cm for the mouse / 190 cm for Tom height / 24.5 cm for James chest to neck distance
 double imgScalar;                                           //Scalar used to set point coordinates in real space
 bool setWrite = false;
 bool imgInput = true;
 
-Mat cameraMatrix, map1, map2;  //Matrices containing the camera matrix, distortion correction maps, rectified images, and grayscale rectified images
-Mat img = imread("photos/tom_full1.jpg");                            //First photo/frame in group/video (used to set size throughout program)
-Mat distCoeffs = Mat::zeros(8, 1, CV_64F);                      //Matrix containing the distortion coefficients (empty in case camera calibration file cannot be opened)
+Mat cameraMatrix, map1, map2;               //Matrices containing the camera matrix, distortion correction maps, rectified images, and grayscale rectified images
+Mat distCoeffs = Mat::zeros(8, 1, CV_64F);  //Matrix containing the distortion coefficients (empty in case camera calibration file cannot be opened)
+Mat img = imread("photos/tom_full1.jpg");   //First photo/frame in group/video (used to set size throughout program)
+VideoCapture capture(fileVid);              //Retrieve video input
 
 const Matx31d fp = Matx31d(0, 0, 0); //Focal point is on z-plane to keep focal length positive
 
-vector<uchar> status;            //Vector containing point and corresponding filter status for tracking
-
-VideoCapture capture(fileVid);
+vector<uchar> status;   //Vector containing point and corresponding filter status for tracking
 
 //Size imgSize = img.size(); //Size of images/frames used throughout program
 Size imgSize = Size(capture.get(CAP_PROP_FRAME_HEIGHT), capture.get(CAP_PROP_FRAME_WIDTH));
@@ -37,7 +37,7 @@ Size winSize = imgSize;
 //FAST feature detection
 void featureDetection(Mat img_1, vector<Point2f>& points1){
   vector<KeyPoint> keypoints_1;
-  int fast_threshold = 1;
+  int fast_threshold = 20;
   bool nonmaxSuppression = true;
   FAST(img_1, keypoints_1, fast_threshold, nonmaxSuppression);
   KeyPoint::convert(keypoints_1, points1, vector<int>());
@@ -51,10 +51,10 @@ void featureTracking(Mat img_1, Mat img_2, vector<Point2f>& points1, vector<Poin
     vector<float> err;
     Size winSize = Size(21,21); //85,85
     cout << "Tracking: Finding term criteria" << endl;
-    TermCriteria termcrit = TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 100, 0.0001);
+    TermCriteria termcrit = TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01);
 
     cout << "Tracking: Calculating optical flow" << endl;
-    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.0001);
+    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001);
 
     //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
     cout << "Tracking: Correcting" << endl;
@@ -88,9 +88,9 @@ Matx31d DotProdMatx31d(Mat E, Matx31d point){
 
 //Homogenous transformation calculation
 Matx31d HRotTrans(Mat Rot, Matx31d Trans, Matx31d point){
-    double new_x = Rot.at<double>(0,0)*point(0)+Rot.at<double>(0,1)*point(1)+Rot.at<double>(0,2)*point(2)+Trans(0);
-    double new_y = Rot.at<double>(1,0)*point(0)+Rot.at<double>(1,1)*point(1)+Rot.at<double>(1,2)*point(2)+Trans(1);
-    double new_z = Rot.at<double>(2,0)*point(0)+Rot.at<double>(2,1)*point(1)+Rot.at<double>(2,2)*point(2)+Trans(2);
+    double new_x = (Rot.at<double>(0,0)*point(0))+(Rot.at<double>(0,1)*point(1))+(Rot.at<double>(0,2)*point(2))+Trans(0);
+    double new_y = (Rot.at<double>(1,0)*point(0))+(Rot.at<double>(1,1)*point(1))+(Rot.at<double>(1,2)*point(2))+Trans(1);
+    double new_z = (Rot.at<double>(2,0)*point(0))+(Rot.at<double>(2,1)*point(1))+(Rot.at<double>(2,2)*point(2))+Trans(2);
 
     return Matx31d(new_x, new_y, new_z);
 }
@@ -143,10 +143,10 @@ int main(){
 
     //Grab video source and take a frame
     int numImgs = capture.get(CAP_PROP_FRAME_COUNT);
+    int numFrames = 1;
     Mat imgRect[numImgs], gray[numImgs], frame;
     vector<Point2f> points[numImgs]; //Array of vectors containing all points (features) within an image/frame
     imgInput = false;
-    cout << imgSize <<endl;
 
     try{
         capture.open(fileVid);
@@ -158,22 +158,33 @@ int main(){
 
     //Rectify and grayscale images
     if(!imgInput){
-        cout << "Video frame correction" << endl;
         int i = 1;
+        int skipF = 0;
+        int skipFCnt = 0;
+        cout << "Video frame correction" << endl;
         for(;;){
-            if(i >= numImgs-1) break;
+            if(i >= numImgs-skipFCnt) break;
             capture >> frame;
             if(!capture.read(frame)){
-                cout << "Frame " << i << " empty, skipping..." << endl;
+                cout << "\rFrame " << i << " empty, skipping..." << endl;
                 i++;
                 continue;
             }
 
-            cout << "Correcting frame " << i << endl;
-            rotate(frame, frame, ROTATE_90_CLOCKWISE);
-            remap(frame, imgRect[i-1], map1, map2, INTER_LINEAR);
-            cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
-            i++;
+            if(skipF > 0 && skipF < 5){
+                cout << "Skipping frame " << skipF << endl;
+                skipFCnt++;
+                skipF++;
+                continue;
+            }else{
+                cout << "\rCorrecting frame " << i << endl;
+                rotate(frame, frame, ROTATE_90_CLOCKWISE);
+                remap(frame, imgRect[i-1], map1, map2, INTER_LINEAR);
+                cvtColor(imgRect[i-1], gray[i-1], COLOR_BGR2GRAY);
+                skipF = 1;
+                numFrames++;
+                i++;
+            }
         }
     }else{
         cout << "Image correction" << endl;
@@ -189,22 +200,19 @@ int main(){
         }
     }
 
-//        imshow("Image", imgRect[i-1]);
-//        imshow("Gray_1", gray[i-1]);
-//        waitKey(0);
-
     //Try to open points.xml
     FileStorage fs1(fileERT, FileStorage::WRITE);
     try{
         fs.open(filePoints, FileStorage::READ);
     }catch(exception& e){
-        cout << "Warning, file is empty. Writing to .xml now, this may take a while (edit the float at the end of calcOpticalFlowPyrLK for performance) ..." << endl;
+        cout << "\nWarning, file is empty. Writing to .xml now, this may take a while (edit the float at the end of calcOpticalFlowPyrLK for performance) ..." << endl;
         setWrite = true;
         fs.open(filePoints, FileStorage::WRITE);
     }
 
     //Main loop processing and finding pointclouds (all points between all frames)
-    for(int i = 1; i < numImgs; i++){
+    numImgs = numFrames;
+    for(int i = 1; i < numImgs-1; i++){
         cout << "\nFrames " << i << " to " << i+1 << ": " << endl;
 
         //XML section names
@@ -241,18 +249,23 @@ int main(){
         hconcat(imgRect[i-1], imgRect[i], hImgRect);
         for(int j = 0; j < (int)points[i-1].size(); j++)
             line(hImgRect, points[i-1].at(j), points[i].at(j)+Point2f(imgRect[i-1].size().width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)));
-//        while(waitKey(10) != 'x') imshow("Image", hImgRect);
+        while(waitKey(10) != 'x') imshow("Image", hImgRect);
 
         //Find essential matrix
         Mat mask, R, t;
-        Mat E = findEssentialMat(points[i-1], points[i], focal, pp, RANSAC, 0.999, 1.0, mask);
+        Mat E = findEssentialMat(points[i-1], points[i], focal, pp, RANSAC, 0.999, 2.0, mask);
+        E.convertTo(E, CV_32S, 100, 0.5);
+        E.convertTo(E, CV_64F, 0.01);
         cout << "mask elements: " << (int)mask.size().height << endl;
 
         //Filter out mathematically impossible feature pairs (according to essential matrix)
         int indexCorrection = 0;
         for(int j = 0; j < (int)mask.size().height; j++){
             Point2f pt = points[i].at(j - indexCorrection);
-            if ((mask.at<int>(j,0) == 0)||(pt.x<0)||(pt.y<0)||abs(points[i].at(j-indexCorrection).x-points[i-1].at(j-indexCorrection).x)>500||abs(points[i].at(j-indexCorrection).y-points[i-1].at(j-indexCorrection).y)>500){
+            if ((mask.at<int>(j,0) == 0)||(pt.x<0)||(pt.y<0)
+                    ||abs(points[i].at(j-indexCorrection).x-points[i-1].at(j-indexCorrection).x)>500
+                    ||abs(points[i].at(j-indexCorrection).y-points[i-1].at(j-indexCorrection).y)>500)
+            {
                 if(pt.x<0 || pt.y<0) mask.at<int>(j,0) = 0;
                 points[i-1].erase(points[i-1].begin() + j - indexCorrection);
                 points[i].erase(points[i].begin() + j - indexCorrection);
@@ -270,21 +283,20 @@ int main(){
             line(hImgRect2, points[i-1].at(j), points[i].at(j)+Point2f(imgSize.width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)));
             circle(hImgRect3, points[i-1].at(j), 5, Scalar(0,0,255), -1);
             circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(0,0,255), -1);
-//            if(((int)points[i-1].at(j).x>=255 && (int)points[i-1].at(j).x<=510) && ((int)points[i-1].at(j).y>=280 && (int)points[i-1].at(j).y<=960)){ //Locate points in the center
 
             //HEAD
-            if(((int)points[i-1].at(j).x>=1300 && (int)points[i-1].at(j).x<=1630) && ((int)points[i-1].at(j).y>=1100 && (int)points[i-1].at(j).y<=1270)){
+            if(((int)points[i-1].at(j).x>=550 && (int)points[i-1].at(j).x<=675) && ((int)points[i-1].at(j).y>=405 && (int)points[i-1].at(j).y<=435)){
                 circle(hImgRect3, points[i-1].at(j), 5, Scalar(255,0,0), -1);
                 circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(255,0,0), -1);
-                cout << "Head feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
-                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
+//                cout << "Head feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
+//                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
             }
             //FEET
-            else if(((int)points[i-1].at(j).x>=1435 && (int)points[i-1].at(j).x<=1880) && ((int)points[i-1].at(j).y>=3540 && (int)points[i-1].at(j).y<=3840)){
+            else if(((int)points[i-1].at(j).x>=430 && (int)points[i-1].at(j).x<=700) && ((int)points[i-1].at(j).y>=1750 && (int)points[i-1].at(j).y<=1860)){
                 circle(hImgRect3, points[i-1].at(j), 5, Scalar(255,0,0), -1);
                 circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(255,0,0), -1);
-                cout << "Feet feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
-                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
+//                cout << "Feet feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
+//                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
             }
         }
         while(waitKey(10) != 'x'){
@@ -298,10 +310,8 @@ int main(){
 
         //Find scalar for real position and depth (position in 3D space of a feature)
         if(i == 1){
-//            int pointNum = 1725;
-//            int pointNumP2 = 127;
-            int pointNum = 12788;
-            int pointNumP2 = 5344;
+            int pointNum = 5398;    //FEET 5327
+            int pointNumP2 = 360;   //HEAD
 
             float LeftCoeffP1, RightCoeffP1, LeftCoeffP2, RightCoeffP2;
             Vector3D point1F1Pos, point1F2Pos, point2F1Pos, point2F2Pos;
@@ -317,9 +327,31 @@ int main(){
 
             ClosestApproach(point1F2Pos, point1F1Pos, RightCoeffP1, LeftCoeffP1);
             Matx31d point1Pos3D = (point1F2Pos.Org + point1F2Pos.Scl * RightCoeffP1 + point1F1Pos.Org + point1F1Pos.Scl * LeftCoeffP1) * 0.5;
-            ClosestApproach(point1F2Pos, point1F1Pos, RightCoeffP2, LeftCoeffP2);
+            ClosestApproach(point2F2Pos, point2F1Pos, RightCoeffP2, LeftCoeffP2);
             Matx31d point2Pos3D = (point2F2Pos.Org + point2F2Pos.Scl * RightCoeffP2 + point2F1Pos.Org + point2F1Pos.Scl * LeftCoeffP2) * 0.5;
 
+            //Tilt compensation
+            Mat vecP1P2(3,1,CV_64F);
+            Mat vecY(3,1,CV_64F);
+            vecP1P2 = Mat(point2Pos3D - point1Pos3D);
+            vecY = Mat(point1Pos3D + Matx31d(0,20,0));
+
+            double c = vecP1P2.dot(vecY);
+            Mat v = vecP1P2.cross(vecY);
+            cout << endl << v << endl;
+            Mat vx = Mat::zeros(3,3,CV_64F);
+            vx.at<double>(0,1) = -v.at<double>(2);
+            vx.at<double>(0,2) = v.at<double>(1);
+            vx.at<double>(1,0) = v.at<double>(2);
+            vx.at<double>(1,2) = -v.at<double>(0);
+            vx.at<double>(2,0) = -v.at<double>(1);
+            vx.at<double>(2,1) = v.at<double>(0);
+            cout << vx << endl;
+            Mat R3D = Mat::eye(3,3,CV_64F) + vx + (vx.mul(vx) * 1/(1+c));
+            point1Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point1Pos3D);
+            point2Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point2Pos3D);
+
+            //Calculation of vector length between two points
             double dx = point1Pos3D(0)-point2Pos3D(0);
             double dy = point1Pos3D(1)-point2Pos3D(1);
             double dz = point1Pos3D(2)-point2Pos3D(2);
@@ -338,15 +370,17 @@ int main(){
             cout << "Right coefficient = " << RightCoeffP2 << endl << "Left coefficient = " << LeftCoeffP2 << endl;
             cout << "Feature position in 3D space: " << endl << point2Pos3D << endl;
             cout << "\nDistance between points = " << lengthP1P2 << endl << "Image Scalar = " << imgScalar << endl;
+            cout << "3D Rot:" << endl << R3D << endl;
             cout << "\nPoint 1 real position in 3D space: " << endl << point1Pos3D*imgScalar << endl;
             cout << "Point 2 real position in 3D space: " << endl << point2Pos3D*imgScalar << endl << endl;
+            break;
         }
 
         Mat hImgRect4;
         hconcat(imgRect[i-1], imgRect[i], hImgRect4);
         indexCorrection = 0;
         Matx31d realPos3D[(int)points[i-1].size()];
-        for (int j = 0; j < (int)points[i-1].size()-1; j++){
+        for (int j = 0; j < (int)points[i-1].size()-1; j++){ //(int)points[i-1].size()-1 or 362
             float LeftCoeff, RightCoeff;
             Vector3D pointF1Pos, pointF2Pos;
             pointF1Pos.Org = fp;
@@ -358,15 +392,25 @@ int main(){
             Matx31d pointPos3D = (pointF2Pos.Org + pointF2Pos.Scl * RightCoeff + pointF1Pos.Org + pointF1Pos.Scl * LeftCoeff) * 0.5;
             realPos3D[j] = pointPos3D*imgScalar;
 
-            if((int)realPos3D[j](2) <= 0 || (int)realPos3D[j](2) >= 3000 || (int)abs(realPos3D[j](1)-realPos3D[j-1](1)) > 500){
+            if((int)realPos3D[j](2) < 0 || (int)realPos3D[j](2) >= 2200 || (int)abs(realPos3D[j](1)-realPos3D[j-1](1)) > 500){
                 points[i-1].erase(points[i-1].begin() + j - indexCorrection);
                 points[i].erase(points[i].begin() + j - indexCorrection);
                 indexCorrection++;
-            }else{
-                line(hImgRect4, points[i-1].at(j), points[i].at(j)+Point2f(imgSize.width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)), 5);
+            }else if(((int)points[i-1].at(j).x>=500 && (int)points[i-1].at(j).x<=700) && ((int)points[i-1].at(j).y>=400 && (int)points[i-1].at(j).y<=1860)){
+                cout << pointPos3D(2) << endl;
+                Scalar BGR = Scalar(0,0,0);
+                if(realPos3D[j](2) < 1900){
+                    BGR = Scalar(0,0,255);
+                    line(hImgRect4, points[i-1].at(j), points[i].at(j)+Point2f(imgSize.width, 0), BGR, 1);
+                }else{
+                    BGR = Scalar(0,255,0);
+                    line(hImgRect4, points[i-1].at(j), points[i].at(j)+Point2f(imgSize.width, 0), Scalar(int(rand()%255+1), int(rand()%255+1), int(rand()%255+1)), 1);
+                }
+                circle(hImgRect4, points[i-1].at(j), 5, BGR, -1);
+                circle(hImgRect4, points[i].at(j)+Point2f(imgSize.width, 0), 5, BGR, -1);
 
-//                cout << "FEATURE PAIR " << j - indexCorrection + 1 << ": " << endl;
-//                cout << "Scaled point in 3D space: " << endl << realPos3D[j] << endl;
+                cout << "FEATURE PAIR " << j - indexCorrection + 1 << ": " << endl;
+                cout << "Scaled point in 3D space: " << endl << realPos3D[j] << endl;
             }
         }
         while(waitKey(10) != 'x') imshow("Image3", hImgRect4);

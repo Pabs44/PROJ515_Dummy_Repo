@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE QtCreatorProject>
-<!-- Written by QtCreator 4.11.0, 2023-03-29T17:39:53. -->
+<!-- Written by QtCreator 4.11.0, 2023-04-22T12:19:44. -->
 <qtcreator>
  <data>
   <variable>EnvironmentId</variable>
@@ -294,7 +294,7 @@
     <value type="bool" key="RunConfiguration.UseQmlDebugger">false</value>
     <value type="bool" key="RunConfiguration.UseQmlDebuggerAuto">true</value>
     <value type="QString" key="RunConfiguration.WorkingDirectory"></value>
-    <value type="QString" key="RunConfiguration.WorkingDirectory.default">/home/pablo/GitHub/PROJ515_Dummy_Repo/qt-projects/build-visual-odometry-Desktop-Release</value>
+    <value type="QString" key="RunConfiguration.WorkingDirectory.default"></value>
    </valuemap>
    <value type="int" key="ProjectExplorer.Target.RunConfigurationCount">1</value>
   </valuemap>
