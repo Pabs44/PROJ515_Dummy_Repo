@@ -42,23 +42,49 @@ void wait_us(int DURATION) {
   while((us_currentTime - us_previousTime) <= DURATION) us_currentTime = micros();
 }
 
-float CHECK_DISTANCE_ULTRA(int ULTRA_ID) {
-  // TRIG PIN. (RESET)
-  digitalWrite(V_P.ULTRA_PINS[ULTRA_ID][0], LOW);
-  wait_us(2);
+// For plate config message, and ultrasonic distance function.
+int* ULTRA_CONFIG(int MOT_ID) {
+  static int ULTRA_ID[2];
 
-  // TRIG PIN. (SEND PULSE)
-  digitalWrite(V_P.ULTRA_PINS[ULTRA_ID][0], HIGH);
-  wait_us(10);
-  digitalWrite(V_P.ULTRA_PINS[ULTRA_ID][0], LOW);
+  if (MOT_ID == 1) {ULTRA_ID[0] = 0; ULTRA_ID[1] = 2;}
+  if (MOT_ID == 2) {ULTRA_ID[0] = 1; ULTRA_ID[1] = 3;}
+  if (MOT_ID == 3) {ULTRA_ID[0] = 2; ULTRA_ID[1] = 3;}
+  if (MOT_ID == 4) {ULTRA_ID[0] = 0; ULTRA_ID[1] = 1;}
+  if ((MOT_ID == 5) || (MOT_ID == 9)) {ULTRA_ID[0] = 4; ULTRA_ID[1] = 6;}
+  if ((MOT_ID == 6) || (MOT_ID == 10)) {ULTRA_ID[0] = 5; ULTRA_ID[1] = 7;}
+  if ((MOT_ID == 7) || (MOT_ID == 11)) {ULTRA_ID[0] = 6; ULTRA_ID[1] = 7;}
+  if (MOT_ID == 8) {ULTRA_ID[0] = 4; ULTRA_ID[1] = 5;}
+  
+  return ULTRA_ID;
+}
 
-  // ECHO PIN. (CALCULATE DISTANCE FROM RETURN PULSE)
-  long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULTRA_ID][1], HIGH);
-  float DIST = DURATION_PULSE * 0.034 / 2;
+// float* to accept array of the two ultrasonic's.
+float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
+  static float DIST[2];
+  int ULT_CONFIG[2] = {0, 0};
 
-  // IF DISTANCE IS BIGGER THAN 40cm
-  //                     TRUE   FALSE
-  DIST = (DIST > 40.0) ? 40.0 : DIST;
+  // int* ULT_CONFIG = ULTRA_CONFIG(MOT_ID);
+
+  for (int i = 0; i < sizeof(ULT_CONFIG); i++) {
+    // TRIG PIN. (RESET)
+    digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
+    wait_us(2);
+
+    // TRIG PIN. (SEND PULSE)
+    digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], HIGH);
+    wait_us(10);
+    digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
+
+    // ECHO PIN. (CALCULATE DISTANCE FROM RETURN PULSE)
+    long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 10000);
+    DIST[i] = DURATION_PULSE * 0.034 / 2;
+
+    Serial.println(DIST[i]);
+
+    // IF DISTANCE IS BIGGER THAN 40cm.
+    //                           TRUE   FALSE
+    DIST[i] = (DIST[i] > 40.0) ? 40.0 : DIST[i];
+  }
 
   return DIST;
 }
@@ -135,12 +161,36 @@ void CALC_MOVES() {
 
 // MOVING MOTORS.
 void MOV_MOTORS() {
-  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0}, TMP_TALLY[AMOUNT_MOT] = {0, 0};
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT], CNT_NON_MOVE_ULTRA[AMOUNT_MOT];
+  float PREV_DIST_ULTRA[AMOUNT_MOT];
+
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    VERIFY_CNT_CHECK[i] = 0;
+    TMP_TALLY[i] = 0;
+    CNT_NON_MOVE_ULTRA[i] = 0;
+    PREV_DIST_ULTRA[i] = 0;
+  }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
-        // IF TALLY OF MOVEMENTS OF MOTOR IS LESS THAN THE ACTUAL TALLY OF STEPS, DO:
+      float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
+
+      if (i != 0) {
+        if ((int)PREV_DIST_ULTRA[i] == (int)((CHK_DIST[0] + CHK_DIST[1]) / 2)) {
+          if (CNT_NON_MOVE_ULTRA[i] == 25) {
+            int* ULT_CONFIG = ULTRA_CONFIG(i);
+            Serial.println("Motor between plates " + String(ULT_CONFIG[0]) + " and " + String(ULT_CONFIG[1]) + " is not func.");
+            CNT_NON_MOVE_ULTRA[i] = 0;
+          }
+
+          CNT_NON_MOVE_ULTRA[i]++;
+        }
+
+        PREV_DIST_ULTRA[i] = ((CHK_DIST[0] + CHK_DIST[1]) / 2);
+      }
+
+      // IF TALLY OF MOVEMENTS OF MOTOR IS LESS THAN THE ACTUAL TALLY OF STEPS, DO:
       if (TMP_TALLY[i] < V_P.TALLY[i]) {
         // STEP AND INCREASE TALLY OF MOVEMENTS OF THE MOTOR.
         digitalWrite(V_P.MOTOR_PINS[i][0], HIGH);
@@ -148,7 +198,7 @@ void MOV_MOTORS() {
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
         TMP_TALLY[i]++;
       } 
-      // IF TALLY OF MOVEMENTS OF MOTOR IS EQUAL TO ACTUAL TALLY OR THE LIMIT SWITCH HAS BEEN PRESSED, DO:
+      // IF TALLY OF MOVEMENTS OF MOTOR IS EQUAL TO ACTUAL TALLY, DO:
       if ((TMP_TALLY[i] == V_P.TALLY[i])) {
         // STOP THE MOTOR, AND ADD TO CNT, TO STATE IT HAS REACHED ITS DESTINATION.
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
@@ -170,6 +220,7 @@ void MOVE_HOME_POS() {
       digitalWrite(V_P.MOTOR_PINS[i][1], HIGH);
     }
 
+    // MAKING sure that the initial switch and check switch variables are definitely 0, as variable sometimes floats.
     V_P.init_sw[i] = 0;
     V_P.CHECK_SW[i] = 0;
   }
@@ -180,36 +231,45 @@ void MOVE_HOME_POS() {
     for (int i = 0; i < AMOUNT_MOT; i++) {
       // READING SPECIFIC SWITCH.
       if (digitalRead(V_P.LIMIT_PINS[i]) == 1) DEBOUNCE_SW(i);
+      // Checking if switch has been pressed.
       if (V_P.CHECK_SW[i] == 1) {
+        // Stopping motors.
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
+        // Making sure that the count of each motor is only added once.
         if (VERIFY_CNT_CHECK[i] == 0) {
           VERIFY_CNT_CHECK[i] = 1;
           CNT_MOT_CHECK++;
         }
       } else {
+        // Step the motors.
         digitalWrite(V_P.MOTOR_PINS[i][0], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
       }
     }
   }
-
-  for (int i = 0; i < AMOUNT_MOT; i++) V_P.CHECK_SW[i] = 0;
 }
 
 
 void DEBOUNCE_SW(int ID) {
+  // Debouncing using timers.
+  // Setting initial time for debouncing of switch.
   if (V_P.init_sw[ID] == 0) {
     V_P.DEBOUNCE_SW[ID][0] = micros();
     V_P.init_sw[ID] = 1;
   }
 
+  // Everytime the function is called, the micro time since startup is taken.
   V_P.DEBOUNCE_SW[ID][1] = micros();
 
+  // IF there is an initial time, DO.
   if (V_P.init_sw[ID] == 1) {
+    // IF initial time, and now time has got a difference of 10000, DO.
     if ((V_P.DEBOUNCE_SW[ID][1] - V_P.DEBOUNCE_SW[ID][0]) > 10000) {
       // CHECK SWITCH IS NOT ALREADY INITIATED. 
+      // ALLOW switch press to be final.
       if (V_P.CHECK_SW[ID] == 0) V_P.CHECK_SW[ID] = 1;
+      // Allow for initial time to be allocated again.
       V_P.init_sw[ID] = 0;
     }    
   }
