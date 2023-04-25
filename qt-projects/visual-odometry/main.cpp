@@ -9,20 +9,23 @@ struct Vector3D{
     Matx31d Scl = Matx31d(0,0,0);
 };
 
-const string fileVid = "./photos/manuel.mp4";
+const string file3D = "points3D.xyz";
+const string fileML = "bodypose_3dbp_tomf.json";
+// /opt/nvidia/deepstream/deepstream-6.2/sources/apps/sample_apps/deepstream-bodypose-3d/streams/
+const string fileVid = "./photos/tom_front.mp4";
 const string filePoints = "points.xml";                     //Output file for feature location within image space
 const string fileERT = "ERT.xml";                           //Output file for essential, rotation, and translation matrices
 const string calib_file = "calibration_output_vid.xml";     //Camera calibration file for video at full resolution (16:9) of Samsung Galaxy S20 FE 5G camera
 //const string calib_file = "calibration_output.xml";         //Camera calibration file for images at full resolution (4:3) of Samsung Galaxy S20 FE 5G camera
 //const string calib_file = "calibration_output_fourth.xml";  //Camera calibration file for images at 1/4th resolution (4:3) of Samsung Galaxy S20 FE 5G camera
-const double knownUnit = 1825;                              //Known distance between two points in mm --> 12.5 cm for the mouse / 190 cm for Tom height / 24.5 cm for James chest to neck distance
+const double knownUnit = 1900;                              //Known distance between two points in mm --> 12.5 cm for the mouse / 190 cm for Tom height / 24.5 cm for James chest to neck distance
 double imgScalar;                                           //Scalar used to set point coordinates in real space
 bool setWrite = false;
 bool imgInput = true;
 
 Mat cameraMatrix, map1, map2;               //Matrices containing the camera matrix, distortion correction maps, rectified images, and grayscale rectified images
 Mat distCoeffs = Mat::zeros(8, 1, CV_64F);  //Matrix containing the distortion coefficients (empty in case camera calibration file cannot be opened)
-Mat img = imread("photos/tom_full1.jpg");   //First photo/frame in group/video (used to set size throughout program)
+Mat img = imread("photos/tom_front1.jpg");   //First photo/frame in group/video (used to set size throughout program)
 VideoCapture capture(fileVid);              //Retrieve video input
 
 const Matx31d fp = Matx31d(0, 0, 0); //Focal point is on z-plane to keep focal length positive
@@ -37,7 +40,7 @@ Size winSize = imgSize;
 //FAST feature detection
 void featureDetection(Mat img_1, vector<Point2f>& points1){
   vector<KeyPoint> keypoints_1;
-  int fast_threshold = 20;
+  int fast_threshold = 10;
   bool nonmaxSuppression = true;
   FAST(img_1, keypoints_1, fast_threshold, nonmaxSuppression);
   KeyPoint::convert(keypoints_1, points1, vector<int>());
@@ -49,12 +52,12 @@ void featureDetection(Mat img_1, vector<Point2f>& points1){
 void featureTracking(Mat img_1, Mat img_2, vector<Point2f>& points1, vector<Point2f>& points2, vector<uchar>& status){
     //this function automatically gets rid of points for which tracking fails
     vector<float> err;
-    Size winSize = Size(21,21); //85,85
+    Size winSize = Size(25,25); //85,85
     cout << "Tracking: Finding term criteria" << endl;
     TermCriteria termcrit = TermCriteria(TermCriteria::COUNT+TermCriteria::EPS, 30, 0.01);
 
     cout << "Tracking: Calculating optical flow" << endl;
-    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.001);
+    calcOpticalFlowPyrLK(img_1, img_2, points1, points2, status, err, winSize, 3, termcrit, 0, 0.0001);
 
     //getting rid of points for which the KLT tracking failed or those who have gone outside the frame
     cout << "Tracking: Correcting" << endl;
@@ -171,7 +174,7 @@ int main(){
                 continue;
             }
 
-            if(skipF > 0 && skipF < 5){
+            if(skipF > 0 && skipF < 20){
                 cout << "Skipping frame " << skipF << endl;
                 skipFCnt++;
                 skipF++;
@@ -200,8 +203,40 @@ int main(){
         }
     }
 
+    //Try to open machine learning output
+    fs.open(fileML, FileStorage::READ);
+    if(!fs.isOpened()){
+        printf("\nUnable to open machine learning output file %s, check file path or contents \n", fileML.c_str());
+        return -1;
+    }else cout << "\nMachine learning file opened" << endl;
+
+    FileNode nodeBatch = fs["batches"]["objects"], node25d = nodeBatch["pose25d"], node3d = nodeBatch["pose3d"];
+    if (node25d.type() != FileNode::SEQ){
+        cerr << "pose25d is not a sequence! FAIL" << endl;
+        return 1;
+    }
+    if (node3d.type() != FileNode::SEQ){
+        cerr << "pose3d is not a sequence! FAIL" << endl;
+        return 1;
+    }
+
+    Mat pose25d = Mat::zeros(34,4,CV_64F), pose3d = Mat::zeros(34,4,CV_64F);
+    FileNodeIterator nodeIt25d = node25d.begin(), nodeIt3d = node3d.begin(); // Go through the node
+    for(int x = 0; x < 34; x++)
+        for(int y = 0; y < 4; y++){
+            pose25d.at<double>(x,y) = (double)*nodeIt25d;
+            pose3d.at<double>(x,y) = (double)*nodeIt3d;
+            nodeIt25d++;
+            nodeIt3d++;
+        }
+
+    fs.releaseAndGetString();
+    cout << "\nPose 2.5D: " << endl << pose25d << endl;
+    cout << "\nPose 3D: " << endl << pose3d << endl;
+
     //Try to open points.xml
     FileStorage fs1(fileERT, FileStorage::WRITE);
+    FileStorage fs3D;
     try{
         fs.open(filePoints, FileStorage::READ);
     }catch(exception& e){
@@ -228,6 +263,7 @@ int main(){
 
         //Write to or read from xml files depending on whether features have been found + tracked
         if(setWrite){
+            fs3D.open(file3D, FileStorage::WRITE);
             cout << "\nDetecting and tracking features on images " << i << " and " << i+1 << endl;
 
             featureDetection(gray[i-1], points[i-1]);
@@ -285,14 +321,14 @@ int main(){
             circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(0,0,255), -1);
 
             //HEAD
-            if(((int)points[i-1].at(j).x>=550 && (int)points[i-1].at(j).x<=675) && ((int)points[i-1].at(j).y>=405 && (int)points[i-1].at(j).y<=435)){
+            if(((int)points[i-1].at(j).x>=500 && (int)points[i-1].at(j).x<=680) && ((int)points[i-1].at(j).y>=140 && (int)points[i-1].at(j).y<=225)){
                 circle(hImgRect3, points[i-1].at(j), 5, Scalar(255,0,0), -1);
                 circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(255,0,0), -1);
 //                cout << "Head feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
 //                cout << points[i].at(j).x << ", " << points[i].at(j).y << endl;
             }
             //FEET
-            else if(((int)points[i-1].at(j).x>=430 && (int)points[i-1].at(j).x<=700) && ((int)points[i-1].at(j).y>=1750 && (int)points[i-1].at(j).y<=1860)){
+            else if(((int)points[i-1].at(j).x>=385 && (int)points[i-1].at(j).x<=705) && ((int)points[i-1].at(j).y>=1575 && (int)points[i-1].at(j).y<=1690)){
                 circle(hImgRect3, points[i-1].at(j), 5, Scalar(255,0,0), -1);
                 circle(hImgRect3, points[i].at(j)+Point2f(imgSize.width, 0), 5, Scalar(255,0,0), -1);
 //                cout << "Feet feature number " << j << endl << points[i-1].at(j).x << ", " << points[i-1].at(j).y << endl;
@@ -305,13 +341,15 @@ int main(){
         }
 
         recoverPose(E, points[i], points[i-1], R, t, focal, pp);
+        R.convertTo(R, CV_32S, 100, 0.5);
+        R.convertTo(R, CV_64F, 0.01);
         cout << "The essential matrix is: " << endl << E << endl << "Rotation is: " << endl << R << endl << "Translation is: " << endl << t << endl; //Output ess, rot, and trans matrices to console
         fs1 << framesERT.str() << "{" << essERT.str() << E << rotERT.str() << R << transERT.str() << t << "}";                                       //Output ess, rot and trans matrices to file
 
         //Find scalar for real position and depth (position in 3D space of a feature)
         if(i == 1){
-            int pointNum = 5398;    //FEET 5327
-            int pointNumP2 = 360;   //HEAD
+            int pointNum = 19561;    //FEET
+            int pointNumP2 = 258;   //HEAD
 
             float LeftCoeffP1, RightCoeffP1, LeftCoeffP2, RightCoeffP2;
             Vector3D point1F1Pos, point1F2Pos, point2F1Pos, point2F2Pos;
@@ -331,25 +369,25 @@ int main(){
             Matx31d point2Pos3D = (point2F2Pos.Org + point2F2Pos.Scl * RightCoeffP2 + point2F1Pos.Org + point2F1Pos.Scl * LeftCoeffP2) * 0.5;
 
             //Tilt compensation
-            Mat vecP1P2(3,1,CV_64F);
-            Mat vecY(3,1,CV_64F);
-            vecP1P2 = Mat(point2Pos3D - point1Pos3D);
-            vecY = Mat(point1Pos3D + Matx31d(0,20,0));
+//            Mat vecP1P2(3,1,CV_64F);
+//            Mat vecY(3,1,CV_64F);
+//            vecP1P2 = Mat(point2Pos3D);
+//            vecY = Mat(double(norm(point1Pos3D)) + Matx31d(0,1,0));
 
-            double c = vecP1P2.dot(vecY);
-            Mat v = vecP1P2.cross(vecY);
-            cout << endl << v << endl;
-            Mat vx = Mat::zeros(3,3,CV_64F);
-            vx.at<double>(0,1) = -v.at<double>(2);
-            vx.at<double>(0,2) = v.at<double>(1);
-            vx.at<double>(1,0) = v.at<double>(2);
-            vx.at<double>(1,2) = -v.at<double>(0);
-            vx.at<double>(2,0) = -v.at<double>(1);
-            vx.at<double>(2,1) = v.at<double>(0);
-            cout << vx << endl;
-            Mat R3D = Mat::eye(3,3,CV_64F) + vx + (vx.mul(vx) * 1/(1+c));
-            point1Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point1Pos3D);
-            point2Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point2Pos3D);
+//            double c = vecP1P2.dot(vecY);
+//            Mat v = vecP1P2.cross(vecY);
+//            cout << endl << v << endl;
+//            Mat vx = Mat::zeros(3,3,CV_64F);
+//            vx.at<double>(0,1) = -v.at<double>(2);
+//            vx.at<double>(0,2) = v.at<double>(1);
+//            vx.at<double>(1,0) = v.at<double>(2);
+//            vx.at<double>(1,2) = -v.at<double>(0);
+//            vx.at<double>(2,0) = -v.at<double>(1);
+//            vx.at<double>(2,1) = v.at<double>(0);
+//            cout << vx << endl;
+//            Mat R3D = Mat::eye(3,3,CV_64F) + vx + (vx.mul(vx) * 1/(1+c));
+//            point1Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point1Pos3D);
+//            point2Pos3D = HRotTrans(R3D, Matx31d(0,0,0), point2Pos3D);
 
             //Calculation of vector length between two points
             double dx = point1Pos3D(0)-point2Pos3D(0);
@@ -370,10 +408,10 @@ int main(){
             cout << "Right coefficient = " << RightCoeffP2 << endl << "Left coefficient = " << LeftCoeffP2 << endl;
             cout << "Feature position in 3D space: " << endl << point2Pos3D << endl;
             cout << "\nDistance between points = " << lengthP1P2 << endl << "Image Scalar = " << imgScalar << endl;
-            cout << "3D Rot:" << endl << R3D << endl;
+//            cout << "3D Rot:" << endl << R3D << endl;
             cout << "\nPoint 1 real position in 3D space: " << endl << point1Pos3D*imgScalar << endl;
             cout << "Point 2 real position in 3D space: " << endl << point2Pos3D*imgScalar << endl << endl;
-            break;
+//            break;
         }
 
         Mat hImgRect4;
@@ -392,12 +430,15 @@ int main(){
             Matx31d pointPos3D = (pointF2Pos.Org + pointF2Pos.Scl * RightCoeff + pointF1Pos.Org + pointF1Pos.Scl * LeftCoeff) * 0.5;
             realPos3D[j] = pointPos3D*imgScalar;
 
+            ostringstream frames3D;
+            frames3D << "frames_" << i << "_to_" << i+1;
+            fs3D << frames3D.str() << realPos3D[j];
+
             if((int)realPos3D[j](2) < 0 || (int)realPos3D[j](2) >= 2200 || (int)abs(realPos3D[j](1)-realPos3D[j-1](1)) > 500){
                 points[i-1].erase(points[i-1].begin() + j - indexCorrection);
                 points[i].erase(points[i].begin() + j - indexCorrection);
                 indexCorrection++;
-            }else if(((int)points[i-1].at(j).x>=500 && (int)points[i-1].at(j).x<=700) && ((int)points[i-1].at(j).y>=400 && (int)points[i-1].at(j).y<=1860)){
-                cout << pointPos3D(2) << endl;
+            }else if(((int)points[i-1].at(j).x>=250 && (int)points[i-1].at(j).x<=900) && ((int)points[i-1].at(j).y>=150 && (int)points[i-1].at(j).y<=1750)){
                 Scalar BGR = Scalar(0,0,0);
                 if(realPos3D[j](2) < 1900){
                     BGR = Scalar(0,0,255);
@@ -409,10 +450,33 @@ int main(){
                 circle(hImgRect4, points[i-1].at(j), 5, BGR, -1);
                 circle(hImgRect4, points[i].at(j)+Point2f(imgSize.width, 0), 5, BGR, -1);
 
-                cout << "FEATURE PAIR " << j - indexCorrection + 1 << ": " << endl;
-                cout << "Scaled point in 3D space: " << endl << realPos3D[j] << endl;
+//                cout << "FEATURE PAIR " << j - indexCorrection + 1 << ": " << endl;
+//                cout << "Scaled point in 3D space: " << endl << realPos3D[j] << endl;
             }
         }
+
+        ostringstream circPointsName;
+        circPointsName << "Pos_3D";
+        string fileHipCirc = "hipCirc.xml";
+        FileStorage fs2;
+        fs2.open(fileHipCirc, FileStorage::WRITE);
+        if(fs2.isOpened() != true) return -1;
+        fs2 << "points" << "{";
+
+        Matx31d circPoints[(int)points[i-1].size()-indexCorrection];
+        for(int j = 0; j < (int)points[i-1].size(); j++){
+            Matx31d pointPos((double)points[i-1].at(j).x - pp.x, (double)points[i-1].at(j).y - pp.y, focal);
+            //Y-axis value is negative only in 3D space, find another solution
+            if(double(pointPos(1)) > -pose25d.at<double>(0,1)-20 && double(pointPos(1)) < -pose25d.at<double>(0,1)+20){
+                circPoints[j] = realPos3D[j];
+                fs2 << circPointsName.str() << circPoints[j];
+            }
+        }
+
+        fs2 << "}";
+        fs2.release();
+
+        fs3D.release();
         while(waitKey(10) != 'x') imshow("Image3", hImgRect4);
     }
     cout << "Process complete..." << endl;

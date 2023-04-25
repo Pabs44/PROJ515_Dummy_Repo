@@ -4,6 +4,7 @@ CONFIG += c++11 console
 CONFIG -= app_bundle
 CONFIG += link_pkgconfig
 PKGCONFIG += opencv4
+PKGCONFIG += jsoncpp
 
 INCLUDEPATH += /usr/include/opencv4/
 INCLUDEPATH += ~/opencv/samples/data/
