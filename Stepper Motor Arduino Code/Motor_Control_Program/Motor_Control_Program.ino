@@ -1,4 +1,4 @@
-#define AMOUNT_MOT 3
+#define AMOUNT_MOT 4
 enum MAN_LIM_STEP {NECK_MOT = 250, FRONT = 250, BACK = 250, SIDE = 185};
 
 #define AMOUNT_ULTRA 1
@@ -76,7 +76,7 @@ float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
     digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
 
     // ECHO PIN. (CALCULATE DISTANCE FROM RETURN PULSE)
-    long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 10000);
+    long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 400);
     DIST[i] = DURATION_PULSE * 0.034 / 2;
 
     Serial.println(DIST[i]);
