@@ -1,7 +1,7 @@
 #define AMOUNT_MOT 4
 enum MAN_LIM_STEP {NECK_MOT = 250, FRONT = 250, BACK = 250, SIDE = 185};
 
-#define AMOUNT_ULTRA 1
+#define AMOUNT_ULTRA 2
 #define MOT_DELAY 1
 
 float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
@@ -61,11 +61,12 @@ int* ULTRA_CONFIG(int MOT_ID) {
 // float* to accept array of the two ultrasonic's.
 float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
   static float DIST[2];
-  int ULT_CONFIG[2] = {0, 0};
+  int ULT_CONFIG[2] = {0, 1};
 
   // int* ULT_CONFIG = ULTRA_CONFIG(MOT_ID);
 
-  for (int i = 0; i < sizeof(ULT_CONFIG); i++) {
+  // NUMBER of ultrasonic sensors for plate.
+  for (int i = 0; i < 2; i++) {
     // TRIG PIN. (RESET)
     digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
     wait_us(2);
@@ -76,11 +77,9 @@ float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
     digitalWrite(V_P.ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
 
     // ECHO PIN. (CALCULATE DISTANCE FROM RETURN PULSE)
-    long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 400);
+    unsigned long DURATION_PULSE = pulseIn(V_P.ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 6000);
     DIST[i] = DURATION_PULSE * 0.034 / 2;
-
-    Serial.println(DIST[i]);
-
+    
     // IF DISTANCE IS BIGGER THAN 40cm.
     //                           TRUE   FALSE
     DIST[i] = (DIST[i] > 40.0) ? 40.0 : DIST[i];
@@ -174,16 +173,14 @@ void MOV_MOTORS() {
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
-      float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
-
       if (i != 0) {
+        float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
         if ((int)PREV_DIST_ULTRA[i] == (int)((CHK_DIST[0] + CHK_DIST[1]) / 2)) {
           if (CNT_NON_MOVE_ULTRA[i] == 25) {
             int* ULT_CONFIG = ULTRA_CONFIG(i);
             Serial.println("Motor between plates " + String(ULT_CONFIG[0]) + " and " + String(ULT_CONFIG[1]) + " is not func.");
             CNT_NON_MOVE_ULTRA[i] = 0;
           }
-
           CNT_NON_MOVE_ULTRA[i]++;
         }
 
@@ -194,7 +191,7 @@ void MOV_MOTORS() {
       if (TMP_TALLY[i] < V_P.TALLY[i]) {
         // STEP AND INCREASE TALLY OF MOVEMENTS OF THE MOTOR.
         digitalWrite(V_P.MOTOR_PINS[i][0], HIGH);
-        wait_us(MOT_DELAY * 1000);
+        wait_us((MOT_DELAY * 1000) / (AMOUNT_MOT - CNT_MOT_CHECK));
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
         TMP_TALLY[i]++;
       } 
