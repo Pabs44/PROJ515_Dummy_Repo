@@ -9,14 +9,14 @@ float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
 
 struct VARS_PINS {
   float FRONT_COG_RAD, CHEST_WAIST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_MOT[AMOUNT_MOT], MIN_MOT[AMOUNT_MOT], MAX_CIRC_DIST[4], MIN_CIRC_DIST[4];
-  int MOTOR_PINS[12][2], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], LED_PINS[3], BUTTON, TALLY[AMOUNT_MOT], CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT];
+  int MOTOR_PINS[12][3], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], LED_PINS[3], BUTTON, TALLY[AMOUNT_MOT], CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT];
   long DEBOUNCE_SW[AMOUNT_MOT][2];
 } V_P = {4.1, 8.38, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {}, {0, 0}, {440, 1020, 840, 1070}, {350, 840, 660, 890}, {}, {}, {}, {14, 15, 19}, 18, {}, {}, {}};
 
 enum BODY_PART {NECK = 0, CHEST, WAIST, HIP};
 
 void CONFIG_MOTORS_SW_ULTRA() {
-  int MOTORS[12][2] = {{22, 23}, {24, 25}, {26, 27}, {28, 29}, {30, 31}, {32, 33}, {34, 35}, {36, 37}, {38, 39}, {40, 41}, {42, 43}, {44, 45}};
+  int MOTORS[12][3] = {{22, 23, 46}, {24, 25, 47}, {26, 27, 48}, {28, 29, 49}, {30, 31, 50}, {32, 33, 51}, {34, 35, 52}, {36, 37, 53}, {38, 39, 14}, {40, 41, 15}, {42, 43, 16}, {44, 45, 17}};
   int SW[12] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13};
   int ULTRA[8][2] = {{54, 55}, {56, 57}, {58, 59}, {60, 61}, {62, 63}, {64, 65}, {66, 67}, {68, 69}}; 
 
@@ -27,6 +27,9 @@ void CONFIG_MOTORS_SW_ULTRA() {
       V_P.MOTOR_PINS[i][j] = MOTORS[i][j];
       pinMode(V_P.MOTOR_PINS[i][j], OUTPUT);
     }
+    V_P.MOTOR_PINS[i][2] = MOTORS[i][2];
+    pinMode(V_P.MOTOR_PINS[i][2], OUTPUT);
+    digitalWrite(V_P.MOTOR_PINS[i][2], HIGH);
   }
 
   for (int i = 0; i < (12 - AMOUNT_MOT); i++) {
@@ -35,6 +38,9 @@ void CONFIG_MOTORS_SW_ULTRA() {
       pinMode(V_P.MOTOR_PINS[i][j], OUTPUT);
       digitalWrite(V_P.MOTOR_PINS[i][j], LOW);
     }
+    V_P.MOTOR_PINS[i][2] = MOTORS[i][2];
+    pinMode(V_P.MOTOR_PINS[i][2], OUTPUT);
+    digitalWrite(V_P.MOTOR_PINS[i][2], HIGH);
   }
 
   for (int i = 0; i < AMOUNT_ULTRA; i++) {
@@ -188,6 +194,8 @@ void MOV_MOTORS() {
     digitalWrite(V_P.LED_PINS[1], HIGH);
     // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      // Setting Motor driver enable to active low.
+      digitalWrite(V_P.MOTOR_PINS[i][2], LOW);
       if (CNT_CHECK_ULT[i] == 15) {
         if (i != 0) {
           float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
@@ -245,7 +253,10 @@ void MOV_MOTORS() {
           CNT_MOT_CHECK++;
         }
       }
-      digitalWrite(V_P.LED_PINS[1], LOW);      
+      digitalWrite(V_P.LED_PINS[1], LOW);
+
+      // Setting Motor driver enable to HIGH.
+      digitalWrite(V_P.MOTOR_PINS[i][2], HIGH);      
     }
   }
 }
@@ -264,10 +275,16 @@ void MOVE_HOME_POS() {
     V_P.CHECK_SW[i] = 0;
   }
 
-  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT] = {0, 0};
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT];
+
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    VERIFY_CNT_CHECK[i] = 0;
+  }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      // Setting Motor driver enable to active low.
+      digitalWrite(V_P.MOTOR_PINS[i][2], LOW);
       // READING SPECIFIC SWITCH.
       if (digitalRead(V_P.LIMIT_PINS[i]) == 1) DEBOUNCE_SW(i);
       // Checking if switch has been pressed.
@@ -285,6 +302,8 @@ void MOVE_HOME_POS() {
         wait_us(MOT_DELAY * 1000);
         digitalWrite(V_P.MOTOR_PINS[i][0], LOW);
       }
+      // Setting Motor driver enable to HIGH.
+      digitalWrite(V_P.MOTOR_PINS[i][2], HIGH);
     }
   }
 }
