@@ -1,3 +1,4 @@
+// https://www.digikey.co.uk/en/maker/blogs/2022/how-to-write-multi-threaded-arduino-programs (Maybe rewrite to include this.)
 #define AMOUNT_MOT 2
 enum MAN_LIM_STEP {NECK_MOT = 250, FRONT = 250, BACK = 250, SIDE = 185};
 
@@ -8,9 +9,9 @@ float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
 
 struct VARS_PINS {
   float FRONT_COG_RAD, CHEST_WAIST_COG_RAD, NECK_COG_RAD, DEG_SIZE[5], MAX_MOT[AMOUNT_MOT], MIN_MOT[AMOUNT_MOT], MAX_CIRC_DIST[4], MIN_CIRC_DIST[4];
-  int MOTOR_PINS[12][2], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], BUTTON, TALLY[AMOUNT_MOT], CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT];
+  int MOTOR_PINS[12][2], LIMIT_PINS[AMOUNT_MOT], ULTRA_PINS[AMOUNT_ULTRA][2], LED_PINS[3], BUTTON, TALLY[AMOUNT_MOT], CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT];
   long DEBOUNCE_SW[AMOUNT_MOT][2];
-} V_P = {4.1, 8.38, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {}, {0, 0}, {440, 1020, 840, 1070}, {350, 840, 660, 890}, {}, {}, {}, 18, {}, {}, {}};
+} V_P = {4.1, 8.38, 5.17, {1.8, 0.9, 0.45, 0.225, 0.1125}, {}, {0, 0}, {440, 1020, 840, 1070}, {350, 840, 660, 890}, {}, {}, {}, {14, 15, 19}, 18, {}, {}, {}};
 
 enum BODY_PART {NECK = 0, CHEST, WAIST, HIP};
 
@@ -168,33 +169,60 @@ void CALC_MOVES() {
 
 // MOVING MOTORS.
 void MOV_MOTORS() {
-  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT], CNT_NON_MOVE_ULTRA[AMOUNT_MOT], CNT_CHECK_ULT[AMOUNT_MOT];
-  float PREV_DIST_ULTRA[AMOUNT_MOT];
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT], CNT_NON_MOVE_ULTRA[AMOUNT_MOT], CNT_CHECK_ULT[AMOUNT_MOT], CNT_UNRESPONSIVE_ULT[AMOUNT_MOT][2];
+  float PREV_DIST_ULTRAS[AMOUNT_MOT], PREV_DIST_ULTRA[AMOUNT_MOT][2];
 
   for (int i = 0; i < AMOUNT_MOT; i++) {
     VERIFY_CNT_CHECK[i] = 0;
     TMP_TALLY[i] = 0;
     CNT_NON_MOVE_ULTRA[i] = 0;
-    PREV_DIST_ULTRA[i] = 0;
+    PREV_DIST_ULTRAS[i] = 0;
+    PREV_DIST_ULTRA[i][0] = 0;
+    PREV_DIST_ULTRA[i][1] = 0;
+    CNT_UNRESPONSIVE_ULT[i][0] = 0;
+    CNT_UNRESPONSIVE_ULT[i][1] = 0;
     CNT_CHECK_ULT[i] = 0;
   }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
+    digitalWrite(V_P.LED_PINS[1], HIGH);
     // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
       if (CNT_CHECK_ULT[i] == 15) {
         if (i != 0) {
           float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
-          if ((int)PREV_DIST_ULTRA[i] == (int)((CHK_DIST[0] + CHK_DIST[1]) / 2)) {
+          
+          if ((int)PREV_DIST_ULTRAS[i] == (int)((CHK_DIST[0] + CHK_DIST[1]) / 2)) {
+            if (CHK_DIST[0] != 0) CNT_UNRESPONSIVE_ULT[i][0] = 0;
+            if (CHK_DIST[1] != 0) CNT_UNRESPONSIVE_ULT[i][1] = 0;
+
+            CNT_NON_MOVE_ULTRA[i]++;
             if (CNT_NON_MOVE_ULTRA[i] == 25) {
               int* ULT_CONFIG = ULTRA_CONFIG(i);
-              Serial.println("Motor between plates " + String(ULT_CONFIG[0]) + " and " + String(ULT_CONFIG[1]) + " is not func.");
+              Serial.println("Motor between plates " + String(ULT_CONFIG[0]) + " and " + String(ULT_CONFIG[1]) + " is not showing movement.");
               CNT_NON_MOVE_ULTRA[i] = 0;
             }
-            CNT_NON_MOVE_ULTRA[i]++;
+            // Checking if the ultrasonic has not been pulled out.
+          } else if (((PREV_DIST_ULTRA[i][0] && CHK_DIST[0]) == 0) || ((PREV_DIST_ULTRA[i][1] && CHK_DIST[1]) == 0)) {
+            if (CHK_DIST[0] == 0) {
+              CNT_UNRESPONSIVE_ULT[i][0]++;
+            } else if (CHK_DIST[1] == 0) {
+              CNT_UNRESPONSIVE_ULT[i][1]++;
+            }
+
+            // Checking if both ultrasonic counts are not over 15.
+            for (int j = 0; j < 2; j++) {
+              if (CNT_UNRESPONSIVE_ULT[i][j] == 15) {
+                int* ULT_CONFIG = ULTRA_CONFIG(i);
+                Serial.println("Ultrasonic " + String(ULT_CONFIG[j]) + " not responding.");
+                CNT_UNRESPONSIVE_ULT[i][j] = 0;
+              }
+            }
           }
 
-          PREV_DIST_ULTRA[i] = ((CHK_DIST[0] + CHK_DIST[1]) / 2);
+          PREV_DIST_ULTRA[i][0] = CHK_DIST[0];
+          PREV_DIST_ULTRA[i][0] = CHK_DIST[1];
+          PREV_DIST_ULTRAS[i] = (CHK_DIST[0] + CHK_DIST[1]) / 2;
         }
       } else {
         CNT_CHECK_ULT[i]++;
@@ -217,6 +245,7 @@ void MOV_MOTORS() {
           CNT_MOT_CHECK++;
         }
       }
+      digitalWrite(V_P.LED_PINS[1], LOW);      
     }
   }
 }
@@ -290,7 +319,14 @@ void setup() {
   // For ESP32 UART Communication.
   Serial2.begin(115200);
 
+  // Configuring motors and ultrasonics to their dedicated pins.
   CONFIG_MOTORS_SW_ULTRA();
+
+  // Setting up user experience LEDs.
+  for (int i = 0; i < 3; i++) {
+    pinMode(V_P.LED_PINS[i], OUTPUT);
+    digitalWrite(V_P.LED_PINS[i], LOW);
+  }
 
   // BUTTON PIN AND ATTACHING INTERRUPT.
   pinMode(V_P.BUTTON, INPUT);
@@ -300,7 +336,6 @@ void setup() {
 
   // CALCULATING AND MOVING MOTORS.
   CALC_MOVES();
-  delay(1000);
   MOV_MOTORS();
 }
 
