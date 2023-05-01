@@ -205,7 +205,7 @@ void MOV_MOTORS() {
             if (CHK_DIST[1] != 0) CNT_UNRESPONSIVE_ULT[i][1] = 0;
 
             CNT_NON_MOVE_ULTRA[i]++;
-            if (CNT_NON_MOVE_ULTRA[i] == 25) {
+            if (CNT_NON_MOVE_ULTRA[i] == 15) {
               int* ULT_CONFIG = ULTRA_CONFIG(i);
               Serial.println("Motor between plates " + String(ULT_CONFIG[0]) + " and " + String(ULT_CONFIG[1]) + " is not showing movement.");
               CNT_NON_MOVE_ULTRA[i] = 0;
