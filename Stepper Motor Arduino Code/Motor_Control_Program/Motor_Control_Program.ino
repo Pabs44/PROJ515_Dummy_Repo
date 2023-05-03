@@ -4,8 +4,6 @@ enum MAN_LIM_STEP {NECK_MOT = 250, FRONT = 250, BACK = 250, SIDE = 185};
 #define AMOUNT_ULTRA 2
 #define MOT_DELAY 1
 
-#include "protothreads.h"
-
 float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
 
 struct VARS_PINS {
@@ -174,8 +172,6 @@ void CALC_MOVES() {
   interrupts();
 }
 
-float* CHK_DIST;
-
 // MOVING MOTORS.
 void MOV_MOTORS() {
   int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT], CNT_NON_MOVE_ULTRA[AMOUNT_MOT], CNT_CHECK_ULT[AMOUNT_MOT], CNT_UNRESPONSIVE_ULT[AMOUNT_MOT][2];
@@ -201,6 +197,8 @@ void MOV_MOTORS() {
       digitalWrite(V_P.MOTOR_PINS[i][2], LOW);
       if (CNT_CHECK_ULT[i] == 15) {
         if (i != 0) {
+          float* CHK_DIST = CHECK_DISTANCE_ULTRA(i);
+
           if ((int)PREV_DIST_ULTRAS[i] == (int)((CHK_DIST[0] + CHK_DIST[1]) / 2)) {
             if (CHK_DIST[0] != 0) CNT_UNRESPONSIVE_ULT[i][0] = 0;
             if (CHK_DIST[1] != 0) CNT_UNRESPONSIVE_ULT[i][1] = 0;
@@ -335,44 +333,7 @@ void DEBOUNCE_SW(int ID) {
   }
 }
 
-pt Thread1;
-int UltraThread(struct pt* pt) {
-  PT_BEGIN(pt);
-
-  for(;;) {
-    for (int i = 0; i < AMOUNT_MOT; i++) {
-      if (i != 0) {
-        CHK_DIST = CHECK_DISTANCE_ULTRA(i);
-      }
-    }
-  }       
-
-  PT_END(pt);
-}
-
-pt Thread2;
-int NormOp(struct pt* pt) {
-  PT_BEGIN(pt);
-
-  // STARTING BY MOVING HOME.
-  MOVE_HOME_POS();
-
-  // CALCULATING AND MOVING MOTORS.
-  CALC_MOVES();
-  MOV_MOTORS();
-
-  for (;;) {
-    // CHECK if button has been pressed.
-    if (digitalRead(V_P.BUTTON) == 1) MOVE_HOME_POS();
-  }
-
-  PT_END(pt);
-}
-
 void setup() {
-//  PT_INIT(&Thread1);
-  PT_INIT(&Thread2);
-
   Serial.begin(115200);
   // For ESP32 UART Communication.
   Serial2.begin(115200);
@@ -388,9 +349,15 @@ void setup() {
 
   // BUTTON PIN AND ATTACHING INTERRUPT.
   pinMode(V_P.BUTTON, INPUT);
+
+  // STARTING BY MOVING HOME.
+  MOVE_HOME_POS();
+
+  // CALCULATING AND MOVING MOTORS.
+  CALC_MOVES();
+  MOV_MOTORS();
 }
 
 void loop() {
-// PT_SCHEDULE(UltraThread(&Thread1));
-  PT_SCHEDULE(NormOp(&Thread2));
+  if (digitalRead(V_P.BUTTON) == 1) MOVE_HOME_POS();
 }
