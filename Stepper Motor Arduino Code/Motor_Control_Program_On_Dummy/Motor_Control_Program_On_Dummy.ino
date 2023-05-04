@@ -1,5 +1,18 @@
-#define AMOUNT_MOT 2
-enum MAN_LIM_STEP {NECK_S = 100, L_C = 110, R_C = 80, B_C = 80, F_C = 40, L_W = 20, R_W = 30, B_W = 20, F_W = 40, L_H = 50, R_H = 30, B_H = 20};
+#define AMOUNT_MOT 12
+#define STEP_SIZE 16
+enum MAN_LIM_STEP {NECK_S = (100 * STEP_SIZE), 
+                   L_C = (110 * STEP_SIZE), 
+                   R_C = (80 * STEP_SIZE), 
+                   B_C = (80 * STEP_SIZE), 
+                   F_C = (40 * STEP_SIZE), 
+                   L_W = (20 * STEP_SIZE), 
+                   R_W = (30 * STEP_SIZE), 
+                   B_W = (20 * STEP_SIZE), 
+                   F_W = (40 * STEP_SIZE), 
+                   L_H = (50 * STEP_SIZE), 
+                   R_H = (30 * STEP_SIZE), 
+                   B_H = (20 * STEP_SIZE)
+};
 
 #define AMOUNT_ULTRA 8
 #define MOT_DELAY 1
@@ -91,6 +104,28 @@ void DEBOUNCE_SWITCHES(int ID) {
   }
 }
 
+int EN_cnt = 0;
+void SET_EN(int MOT) {
+  EN_cnt++;
+
+  if (EN_cnt == 1) {
+    if (((MOT == 0) || (MOT == 3) || (MOT == 6) || (MOT == 9))) {
+      digitalWrite(MOTOR_PINS[MOT][2], LOW);
+      digitalWrite(MOTOR_PINS[(MOT + 1)][2], LOW);
+      digitalWrite(MOTOR_PINS[(MOT + 2)][2], LOW);
+    }
+  }
+
+  if (EN_cnt == 2) {
+    if ((MOT == 2) || (MOT == 5) || (MOT == 8) || (MOT == 11)) {
+      digitalWrite(MOTOR_PINS[MOT][2], HIGH);
+      digitalWrite(MOTOR_PINS[(MOT + 1)][2], HIGH);
+      digitalWrite(MOTOR_PINS[(MOT + 2)][2], HIGH);
+    }
+    EN_cnt = 0;
+  }
+}
+
 void MOVE_HOME_POS() {
   int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT];
   
@@ -106,27 +141,25 @@ void MOVE_HOME_POS() {
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     for (int i = 0; i < AMOUNT_MOT; i++) {
-      // Setting Motor driver enable to active low.
-      digitalWrite(MOTOR_PINS[i][2], LOW);
-      // READING SPECIFIC SWITCH.
+      SET_EN(i);
+
       if (digitalRead(LIMIT_PINS[i]) == 1) DEBOUNCE_SWITCHES(i);
-      // Checking if switch has been pressed.
-      if (CHECK_SW[i] == 1) {
-        // Stopping motors.
+
+      if (CHECK_SW[i] == 0) {
+        digitalWrite(MOTOR_PINS[i][0], HIGH);
+        delayMicroseconds(1000);
         digitalWrite(MOTOR_PINS[i][0], LOW);
-        // Making sure that the count of each motor is only added once.
+
+        SET_EN(i);
+      } else {
+        digitalWrite(MOTOR_PINS[i][0], LOW);
+
+        SET_EN(i);
         if (VERIFY_CNT_CHECK[i] == 0) {
           VERIFY_CNT_CHECK[i] = 1;
           CNT_MOT_CHECK++;
         }
-      } else {
-        // Step the motors.
-        digitalWrite(MOTOR_PINS[i][0], HIGH);
-        wait_us(MOT_DELAY * 1000);
-        digitalWrite(MOTOR_PINS[i][0], LOW);
       }
-      // Setting Motor driver enable to HIGH.
-      digitalWrite(MOTOR_PINS[i][2], HIGH);
     }
   }
 }
@@ -180,32 +213,29 @@ void GROUP_MOTORS(int MEASUREMENT_GROUP, float PERCENTAGE) {
   int MAX_STEPS[4];
   // SETTING ALL MOTORS TO BE MOVING OUT.
   for (int i = 0; i < AMOUNT_MOT; i++) {
-    if (i == 0) { // IF NECK.
-      digitalWrite(MOTOR_PINS[i][1], HIGH);
-    } else {
-      digitalWrite(MOTOR_PINS[i][1], LOW);
-    }
-  }
-  switch (MEASUREMENT_GROUP) {
-    case NECK:
-      MAX_STEPS[0] = NECK_S;
-      TALLY[0] = (int)(MAX_STEPS[0] * PERCENTAGE);
-      break;
+    digitalWrite(MOTOR_PINS[i][1], LOW);
+
+    switch (MEASUREMENT_GROUP) {
+      case NECK:
+        MAX_STEPS[0] = NECK_S;
+        TALLY[0] = (int)(MAX_STEPS[0] * PERCENTAGE);
+        break;
     
-    case CHEST:
-      MAX_STEPS[0] = L_C, MAX_STEPS[1] = R_C, MAX_STEPS[2] = B_C, MAX_STEPS[3] = F_C;
-      for (int i = 1; i < 5; i++) TALLY[i] = (int)(MAX_STEPS[(i - 1)] * PERCENTAGE);
-      break;
+      case CHEST:
+        MAX_STEPS[0] = L_C, MAX_STEPS[1] = R_C, MAX_STEPS[2] = B_C, MAX_STEPS[3] = F_C;
+        for (int i = 1; i < 5; i++) TALLY[i] = (int)(MAX_STEPS[(i - 1)] * PERCENTAGE);
+        break;
 
-    case WAIST:
-      MAX_STEPS[0] = L_W, MAX_STEPS[1] = R_W, MAX_STEPS[2] = B_W, MAX_STEPS[3] = F_W;
-      for (int i = 5; i < 9; i++) TALLY[i] = (int)(MAX_STEPS[(i - 5)] * PERCENTAGE);
-      break;
+      case WAIST:
+        MAX_STEPS[0] = L_W, MAX_STEPS[1] = R_W, MAX_STEPS[2] = B_W, MAX_STEPS[3] = F_W;
+        for (int i = 5; i < 9; i++) TALLY[i] = (int)(MAX_STEPS[(i - 5)] * PERCENTAGE);
+        break;
 
-    case HIP:
-      MAX_STEPS[0] = L_H, MAX_STEPS[1] = R_H, MAX_STEPS[2] = B_H;
-      for (int i = 9; i < 12; i++) TALLY[i] = (int)(MAX_STEPS[(i - 9)] * PERCENTAGE);
-      break;
+      case HIP:
+        MAX_STEPS[0] = L_H, MAX_STEPS[1] = R_H, MAX_STEPS[2] = B_H;
+        for (int i = 9; i < 12; i++) TALLY[i] = (int)(MAX_STEPS[(i - 9)] * PERCENTAGE);
+        break;
+    }
   }
 }
 
@@ -252,50 +282,48 @@ void MOV_MOTORS() {
 
   for (int i = 0; i < AMOUNT_MOT; i++) {
     VERIFY_CNT_CHECK[i] = 0;
-    digitalWrite(MOTOR_PINS[i][1], LOW);
     TMP_TALLY[i] = 0;
   }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
-    // RUNNING THROUGH THE MOTORS.
     for (int i = 0; i < AMOUNT_MOT; i++) {
-      // Setting Motor driver enable to active low.
-      digitalWrite(MOTOR_PINS[i][2], LOW);
+      SET_EN(i);
 
-      // IF TALLY OF MOVEMENTS OF MOTOR IS LESS THAN THE ACTUAL TALLY OF STEPS, DO:
       if (TMP_TALLY[i] < TALLY[i]) {
-        // STEP AND INCREASE TALLY OF MOVEMENTS OF THE MOTOR.
         digitalWrite(MOTOR_PINS[i][0], HIGH);
         wait_us(MOT_DELAY * 1000);
         digitalWrite(MOTOR_PINS[i][0], LOW);
+
+        SET_EN(i);
         TMP_TALLY[i]++;
-      } 
-      // IF TALLY OF MOVEMENTS OF MOTOR IS EQUAL TO ACTUAL TALLY, DO:
-      if ((TMP_TALLY[i] == TALLY[i])) {
-        // STOP THE MOTOR, AND ADD TO CNT, TO STATE IT HAS REACHED ITS DESTINATION.
+      } else {
         digitalWrite(MOTOR_PINS[i][0], LOW);
 
+        SET_EN(i);
+
         if (VERIFY_CNT_CHECK[i] == 0) {
-          VERIFY_CNT_CHECK[i] = 1;
+          VERIFY_CNT_CHECK[i]++;
           CNT_MOT_CHECK++;
         }
       }
-
-      // Setting Motor driver enable to HIGH.
-      digitalWrite(MOTOR_PINS[i][2], HIGH);      
     }
   }
 }
 
 void setup() {
+  Serial.begin(115200);
   CONFIG_P();
-
-  MOVE_HOME_POS();
-  CALC_MOVES();
-  delay(1000);
-  MOV_MOTORS();
 }
+
+int cnt = 0;
 
 void loop() {
 
+  if (cnt == 0) {
+    MOVE_HOME_POS();
+    CALC_MOVES();
+    delay(1000);
+    MOV_MOTORS();
+    cnt++;
+  }
 }
