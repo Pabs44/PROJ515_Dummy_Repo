@@ -1,21 +1,28 @@
-#define AMOUNT_MOT 2
-#define STEP_SIZE 16
-enum MAN_LIM_STEP {NECK_S = (100 * STEP_SIZE), 
-                   L_C = (110 * STEP_SIZE), 
-                   R_C = (80 * STEP_SIZE), 
-                   B_C = (80 * STEP_SIZE), 
-                   F_C = (40 * STEP_SIZE), 
-                   L_W = (20 * STEP_SIZE), 
-                   R_W = (30 * STEP_SIZE), 
-                   B_W = (20 * STEP_SIZE), 
-                   F_W = (40 * STEP_SIZE), 
-                   L_H = (50 * STEP_SIZE), 
-                   R_H = (30 * STEP_SIZE), 
-                   B_H = (20 * STEP_SIZE)
+// #define AMOUNT_MOT 2
+// #define STEP_SIZE 16
+
+const int AMOUNT_MOT = 1;
+const int STEP_SIZE = 16;
+
+enum MAN_LIM_STEP {
+  NECK_S = (100 * STEP_SIZE), 
+  L_C = (110 * STEP_SIZE), 
+  R_C = (80 * STEP_SIZE), 
+  B_C = (80 * STEP_SIZE), 
+  F_C = (40 * STEP_SIZE), 
+  L_W = (20 * STEP_SIZE), 
+  R_W = (30 * STEP_SIZE), 
+  B_W = (20 * STEP_SIZE), 
+  F_W = (40 * STEP_SIZE), 
+  L_H = (50 * STEP_SIZE), 
+  R_H = (30 * STEP_SIZE), 
+  B_H = (20 * STEP_SIZE)
 };
 
-#define AMOUNT_ULTRA 2
-#define MOT_DELAY 1
+// #define AMOUNT_ULTRA 2
+// #define MOT_DELAY 1
+const int AMOUNT_ULTRA = 2;
+const int MOT_DELAY = 1;
 
 float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
 
@@ -58,6 +65,8 @@ void CONFIG_P() {
   }
 
   for (int i = 0; i < AMOUNT_ULTRA; i++) {
+    Serial.println(ULTRA[i][0]);
+    Serial.println(ULTRA[i][1]);
     ULTRA_PINS[i][0] = ULTRA[i][0];
     ULTRA_PINS[i][1] = ULTRA[i][1];
     pinMode(ULTRA_PINS[i][0], OUTPUT); // TRIG
@@ -149,20 +158,26 @@ float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
   static float DIST[2];
 
   int* ULT_CONFIG = ULTRA_CONFIG(MOT_ID);
+  Serial.println();
+  Serial.println(ULT_CONFIG[0]);
+  Serial.println(ULT_CONFIG[1]);
 
   // NUMBER of ultrasonic sensors for plate.
   for (int i = 0; i < 2; i++) {
     // TRIG PIN. (RESET)
-    digitalWrite(ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
-    wait_us(2);
+    digitalWrite(ULTRA_PINS[i][0], LOW);
+    // wait_us(2);
+    delayMicroseconds(2);
 
     // TRIG PIN. (SEND PULSE)
-    digitalWrite(ULTRA_PINS[ULT_CONFIG[i]][0], HIGH);
-    wait_us(10);
-    digitalWrite(ULTRA_PINS[ULT_CONFIG[i]][0], LOW);
+    digitalWrite(ULTRA_PINS[i][0], HIGH);
+    // wait_us(10);
+    delayMicroseconds(10);
+    digitalWrite(ULTRA_PINS[i][0], LOW);
+    delayMicroseconds(20);
 
     // ECHO PIN. (CALCULATE DISTANCE FROM RETURN PULSE)
-    unsigned long DURATION_PULSE = pulseIn(ULTRA_PINS[ULT_CONFIG[i]][1], HIGH, 6000);
+    unsigned long DURATION_PULSE = pulseIn(ULTRA_PINS[i][1], HIGH, 6000);
     DIST[i] = DURATION_PULSE * 0.034 / 2;
     
     // IF DISTANCE IS BIGGER THAN 40cm.
@@ -184,6 +199,7 @@ void MOVE_HOME_POS() {
     init_sw[i] = 0;
     CHECK_SW[i] = 0;
     VERIFY_CNT_CHECK[i] = 0;
+    CNT_MOTOR_STEPS[i] = 0;
   }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
@@ -192,6 +208,7 @@ void MOVE_HOME_POS() {
       if (CNT_MOTOR_STEPS[i] == 15) {
         float* CHK_DIST_TMP = CHECK_DISTANCE_ULTRA(i);
 
+        Serial.print("Move home pos ultrasound: ");
         Serial.println(CHK_DIST_TMP[0]);
         CHK_DIST[i][0] = CHK_DIST_TMP[0];
         CHK_DIST[i][1] = CHK_DIST_TMP[1];
@@ -319,7 +336,8 @@ void MOV_MOTORS() {
 
       if (TMP_TALLY[i] < TALLY[i]) {
         digitalWrite(MOTOR_PINS[i][0], HIGH);
-        wait_us(MOT_DELAY * 1000);
+        // wait_us(MOT_DELAY * 1000);
+        delayMicroseconds(MOT_DELAY * 1000);
         digitalWrite(MOTOR_PINS[i][0], LOW);
 
         SET_EN(i);
@@ -341,15 +359,10 @@ void MOV_MOTORS() {
 // Arduino Mega has 6 timers ranging from 0 to 5. 0 and 2 are 8 bit timers, rest are 16 bit. Not using 0 as it is used for the millis() function on which we are using. https://moji1.github.io/EEE499/labssrc/lab2/lab2.html 
 // Code taken from here: https://www.instructables.com/Arduino-Timer-Interrupts/ 
 
-ISR(TIMER3_COMPA_vect)
-{
+ISR(TIMER3_COMPA_vect){
   for (int i = 0; i < AMOUNT_MOT; i++) {
     for (int j = 0; j < 2; j++) {
-      if (CHK_DIST[i][j] == 0) {
-        if (CHK_LED_Y == 0) {
-          CHK_LED_Y = 1;
-        }
-      }
+      if ((CHK_DIST[i][j] == 0) && (CHK_LED_Y == 0)) CHK_LED_Y = 1;
     }
   }
 }
@@ -375,9 +388,28 @@ void setup() {
 int cnt = 1;
 
 void loop() {
+  noInterrupts();
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    float* CHK_DIST_TMP = CHECK_DISTANCE_ULTRA(i);
+    CHK_DIST[i][0] = CHK_DIST_TMP[0];
+    CHK_DIST[i][1] = CHK_DIST_TMP[1];
+
+    Serial.print("Ultrasound ");
+    Serial.print(i);
+    Serial.println(",0: ");
+    Serial.println(CHK_DIST_TMP[0]);
+
+    Serial.print("Ultrasound ");
+    Serial.print(i);
+    Serial.println(",1: ");
+    Serial.println(CHK_DIST_TMP[1]);
+  }
+  interrupts();
+  delay(1000);
+  
   if (CHK_LED_Y == 1) {
     digitalWrite(LED_PINS[1], HIGH);
-    delay(1000);
+    delay(100);
     digitalWrite(LED_PINS[1], LOW);
     CHK_LED_Y = 0;
   }
