@@ -1,4 +1,4 @@
-#define AMOUNT_MOT 12
+#define AMOUNT_MOT 2
 #define STEP_SIZE 16
 enum MAN_LIM_STEP {NECK_S = (100 * STEP_SIZE), 
                    L_C = (110 * STEP_SIZE), 
@@ -14,7 +14,7 @@ enum MAN_LIM_STEP {NECK_S = (100 * STEP_SIZE),
                    B_H = (20 * STEP_SIZE)
 };
 
-#define AMOUNT_ULTRA 8
+#define AMOUNT_ULTRA 2
 #define MOT_DELAY 1
 
 float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
@@ -22,6 +22,8 @@ float MOTOR_CIR_DIST_ARRAY[4] = {400.5, 925.3, 735.8, 960.4};
 float MAX_CIRC_DIST[4] = {440, 1020, 840, 1070}, MIN_CIRC_DIST[4] = {350, 840, 660, 890};
 int LIMIT_PINS[AMOUNT_MOT], MOTOR_PINS[12][3], ULTRA_PINS[AMOUNT_ULTRA][2], LED_PINS[3], INIT_BUTTON, CHECK_SW[AMOUNT_MOT], init_sw[AMOUNT_MOT], TALLY[AMOUNT_MOT];
 long DEBOUNCE_SW[AMOUNT_MOT][2];
+int CHK_LED_R, CHK_LED_Y, CHK_LED_G = 0;
+float CHK_DIST[AMOUNT_MOT][2];
 
 enum BODY_PART {NECK = 0, CHEST, WAIST, HIP};
 
@@ -126,44 +128,6 @@ void SET_EN(int MOT) {
   }
 }
 
-void MOVE_HOME_POS() {
-  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT];
-  
-  for (int i = 0; i < AMOUNT_MOT; i++) {
-    // SETTING ROTATION TO MOVE IN.
-    digitalWrite(MOTOR_PINS[i][1], HIGH);
-
-    // MAKING sure that the initial switch and check switch variables are definitely 0, as variable sometimes floats.
-    init_sw[i] = 0;
-    CHECK_SW[i] = 0;
-    VERIFY_CNT_CHECK[i] = 0;
-  }
-
-  while (CNT_MOT_CHECK != AMOUNT_MOT) {
-    for (int i = 0; i < AMOUNT_MOT; i++) {
-      SET_EN(i);
-
-      if (digitalRead(LIMIT_PINS[i]) == 1) DEBOUNCE_SWITCHES(i);
-
-      if (CHECK_SW[i] == 0) {
-        digitalWrite(MOTOR_PINS[i][0], HIGH);
-        delayMicroseconds(1000);
-        digitalWrite(MOTOR_PINS[i][0], LOW);
-
-        SET_EN(i);
-      } else {
-        digitalWrite(MOTOR_PINS[i][0], LOW);
-
-        SET_EN(i);
-        if (VERIFY_CNT_CHECK[i] == 0) {
-          VERIFY_CNT_CHECK[i] = 1;
-          CNT_MOT_CHECK++;
-        }
-      }
-    }
-  }
-}
-
 // For plate config message, and ultrasonic distance function.
 int* ULTRA_CONFIG(int MOT_ID) {
   static int ULTRA_ID[2];
@@ -207,6 +171,57 @@ float* CHECK_DISTANCE_ULTRA(int MOT_ID) {
   }
 
   return DIST;
+}
+
+void MOVE_HOME_POS() {
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], CNT_MOTOR_STEPS[AMOUNT_MOT];
+  
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    // SETTING ROTATION TO MOVE IN.
+    digitalWrite(MOTOR_PINS[i][1], HIGH);
+
+    // MAKING sure that the initial switch and check switch variables are definitely 0, as variable sometimes floats.
+    init_sw[i] = 0;
+    CHECK_SW[i] = 0;
+    VERIFY_CNT_CHECK[i] = 0;
+  }
+
+  while (CNT_MOT_CHECK != AMOUNT_MOT) {
+    for (int i = 0; i < AMOUNT_MOT; i++) {
+      noInterrupts();
+      if (CNT_MOTOR_STEPS[i] == 15) {
+        float* CHK_DIST_TMP = CHECK_DISTANCE_ULTRA(i);
+
+        Serial.println(CHK_DIST_TMP[0]);
+        CHK_DIST[i][0] = CHK_DIST_TMP[0];
+        CHK_DIST[i][1] = CHK_DIST_TMP[1];
+        CNT_MOTOR_STEPS[i] = 0;
+      } else {
+        CNT_MOTOR_STEPS[i]++;
+      }
+      interrupts();
+
+      SET_EN(i);
+
+      if (digitalRead(LIMIT_PINS[i]) == 1) DEBOUNCE_SWITCHES(i);
+
+      if (CHECK_SW[i] == 0) {
+        digitalWrite(MOTOR_PINS[i][0], HIGH);
+        delayMicroseconds(1000);
+        digitalWrite(MOTOR_PINS[i][0], LOW);
+
+        SET_EN(i);
+      } else {
+        digitalWrite(MOTOR_PINS[i][0], LOW);
+
+        SET_EN(i);
+        if (VERIFY_CNT_CHECK[i] == 0) {
+          VERIFY_CNT_CHECK[i] = 1;
+          CNT_MOT_CHECK++;
+        }
+      }
+    }
+  }
 }
 
 void GROUP_MOTORS(int MEASUREMENT_GROUP, float PERCENTAGE) {
@@ -278,15 +293,28 @@ void CALC_MOVES() {
 
 // MOVING MOTORS.
 void MOV_MOTORS() {
-  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT];
+  int CNT_MOT_CHECK = 0, VERIFY_CNT_CHECK[AMOUNT_MOT], TMP_TALLY[AMOUNT_MOT], CNT_MOTOR_STEPS[AMOUNT_MOT];
 
   for (int i = 0; i < AMOUNT_MOT; i++) {
     VERIFY_CNT_CHECK[i] = 0;
     TMP_TALLY[i] = 0;
+    CNT_MOTOR_STEPS[i] = 0;
   }
 
   while (CNT_MOT_CHECK != AMOUNT_MOT) {
     for (int i = 0; i < AMOUNT_MOT; i++) {
+      noInterrupts();
+      if (CNT_MOTOR_STEPS[i] == 15) {
+        float* CHK_DIST_TMP = CHECK_DISTANCE_ULTRA(i);
+
+        CHK_DIST[i][0] = CHK_DIST_TMP[0];
+        CHK_DIST[i][1] = CHK_DIST_TMP[1];
+        CNT_MOTOR_STEPS[i] = 0;
+      } else {
+        CNT_MOTOR_STEPS[i]++;
+      }
+      interrupts();
+
       SET_EN(i);
 
       if (TMP_TALLY[i] < TALLY[i]) {
@@ -310,14 +338,49 @@ void MOV_MOTORS() {
   }
 }
 
+// Arduino Mega has 6 timers ranging from 0 to 5. 0 and 2 are 8 bit timers, rest are 16 bit. Not using 0 as it is used for the millis() function on which we are using. https://moji1.github.io/EEE499/labssrc/lab2/lab2.html 
+// Code taken from here: https://www.instructables.com/Arduino-Timer-Interrupts/ 
+
+ISR(TIMER3_COMPA_vect)
+{
+  for (int i = 0; i < AMOUNT_MOT; i++) {
+    for (int j = 0; j < 2; j++) {
+      if (CHK_DIST[i][j] == 0) {
+        if (CHK_LED_Y == 0) {
+          CHK_LED_Y = 1;
+        }
+      }
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   CONFIG_P();
+
+  noInterrupts();
+  // TIMER 3.
+  TCCR3A = 0;               //set entire TCCR3A register to 0
+  TCCR3B = 0;               //set entire TCCR3B register to 0
+  TCNT3  = 0;               //initialize counter value to 0
+
+  OCR3A = 12499;
+
+  TCCR3B |= (1 << WGM12);
+  TCCR3B |= (1 << CS12);
+  TIMSK3 |= (1 << OCIE3A);
+  interrupts();
 }
 
-int cnt = 0;
+int cnt = 1;
 
 void loop() {
+  if (CHK_LED_Y == 1) {
+    digitalWrite(LED_PINS[1], HIGH);
+    delay(1000);
+    digitalWrite(LED_PINS[1], LOW);
+    CHK_LED_Y = 0;
+  }
 
   if (cnt == 0) {
     MOVE_HOME_POS();
