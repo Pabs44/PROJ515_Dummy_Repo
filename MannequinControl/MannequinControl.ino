@@ -4,6 +4,93 @@
 #define OUT LOW
 #define IN HIGH
 
+typedef enum {
+  noProblemsFlag = 0,
+  runningConcernFlag,
+  showStopperFlag,
+} LEDStates;
+
+typedef enum {
+  NeckLimitSW = 2,
+  LeftChestLimitSW, //3
+  RightChestLimitSW, //4
+  BackChestLimitSW, //5
+  FrontChestLimitSW, //6
+  LeftWaistLimitSW, //7
+  RightWaistLimitSW, //8
+  BackWaistLimitSW, //9
+  FrontWaistLimitSW, //10
+  LeftHipLimitSW, //11
+  RightHipLimitSW, //12
+  BackHipLimitSW, //13
+} limitSwitchPins;
+
+typedef enum {
+  RedLED = 18,
+  YellowLED, //19
+  GreenLED, //20
+} LEDPins;
+
+typedef enum {
+  NeckStep = 22,
+  NeckDir, //23
+  LeftChestStep, //24
+  LeftChestDir, //25
+  RightChestStep, //26
+  RightChestDir, //27
+  BackChestStep, //28
+  BackChestDir, //29
+  FrontChestStep, //30
+  FrontChestDir, //31
+  LeftWaistStep, //32
+  LeftWaistDir, //33
+  RightWaistStep, //34
+  RightWaistDir, //35
+  BackWaistStep, //36
+  BackWaistDir, //37
+  FrontWaistStep, //38
+  FrontWaistDir, //39
+  LeftHipStep, //40
+  LeftHipDir, //41
+  RightHipStep, //42
+  RightHipDir, //43
+  BackHipStep, //44
+  BackHipDir, //45
+
+  NeckEn, //46
+  LeftChestEn, //47
+  RightChestEn, //48
+  BackChestEn, //49
+  FrontChestEn, //50
+  LeftWaistEn, //51
+  RightWaistEn, //52
+  BackWaistEn, //53
+
+  FrontWaistEn = 14, //14
+  LeftHipEn, //15
+  RightHipEn, //16
+  BackHipEn, //17
+} stepperMotorPins;
+
+typedef enum {
+  TopFrontLeftTrig = 54,
+  TopFrontLeftEcho,
+  TopFrontRightTrig,
+  TopFrontRightEcho,
+  TopBackLeftTrig,
+  TopBackLeftEcho,
+  TopBackRightTrig,
+  TopBackRightEcho,
+  BottomFrontLeftTrig,
+  BottomFrontLeftEcho,
+  BottomFrontRightTrig,
+  BottomFrontRightEcho,
+  BottomBackLeftTrig,
+  BottomBackLeftEcho,
+  BottomBackRightTrig,
+  BottomBackRightEcho,
+} ultrasonicSensorPins;
+
 const int motSpd = 200;
 
 int steP;
@@ -53,205 +140,14 @@ int GreenLEDState = 1;
 
 int numOfSteps = 0;
 
-typedef enum {
-  noProblemsFlag = 0,
-  runningConcernFlag,
-  showStopperFlag,
-} LEDStates;
+int currentCompareCnt[8];
+int zeroValueCnt[8];
+int tempUltrasonicValue[8];
+float percentageQualifier = 0.005;
+
+int incomingByte = 0;
 
 int systemStateFlag = noProblemsFlag;
-
-typedef enum {
-  NeckLimitSW = 2,
-  LeftChestLimitSW, //3
-  RightChestLimitSW, //4
-  BackChestLimitSW, //5
-  FrontChestLimitSW, //6
-  LeftWaistLimitSW, //7
-  RightWaistLimitSW, //8
-  BackWaistLimitSW, //9
-  FrontWaistLimitSW, //10
-  LeftHipLimitSW, //11
-  RightHipLimitSW, //12
-  BackHipLimitSW, //13
-
-  FrontWaistEn, //14
-  LeftHipEn, //15
-  RightHipEn, //16
-  BackHipEn, //17
-} limitSwitchPins;
-
-typedef enum {
-  RedLED = 18,
-  YellowLED, //19
-  GreenLED, //20
-} LEDPins;
-
-typedef enum {
-  NeckStep = 22,
-  NeckDir, //23
-  LeftChestStep, //24
-  LeftChestDir, //25
-  RightChestStep, //26
-  RightChestDir, //27
-  BackChestStep, //28
-  BackChestDir, //29
-  FrontChestStep, //30
-  FrontChestDir, //31
-  LeftWaistStep, //32
-  LeftWaistDir, //33
-  RightWaistStep, //34
-  RightWaistDir, //35
-  BackWaistStep, //36
-  BackWaistDir, //37
-  FrontWaistStep, //38
-  FrontWaistDir, //39
-  LeftHipStep, //40
-  LeftHipDir, //41
-  RightHipStep, //42
-  RightHipDir, //43
-  BackHipStep, //44
-  BackHipDir, //45
-
-  NeckEn, //46
-  LeftChestEn, //47
-  RightChestEn, //48
-  BackChestEn, //49
-  FrontChestEn, //50
-  LeftWaistEn, //51
-  RightWaistEn, //52
-  BackWaistEn, //53
-} stepperMotorPins;
-
-typedef enum {
-  TopFrontLeftTrig = 54,
-  TopFrontLeftEcho,
-  TopFrontRightTrig,
-  TopFrontRightEcho,
-  TopBackLeftTrig,
-  TopBackLeftEcho,
-  TopBackRightTrig,
-  TopBackRightEcho,
-  BottomFrontLeftTrig,
-  BottomFrontLeftEcho,
-  BottomFrontRightTrig,
-  BottomFrontRightEcho,
-  BottomBackLeftTrig,
-  BottomBackLeftEcho,
-  BottomBackRightTrig,
-  BottomBackRightEcho,
-} ultrasonicSensorPins;
-
-
-void setup() {
-  Serial.begin(115200);
-  Serial.println("Start");
-
-  pinMode(NeckLimitSW, INPUT);
-  pinMode(LeftChestLimitSW, INPUT);
-  pinMode(RightChestLimitSW, INPUT);
-  pinMode(BackChestLimitSW, INPUT);
-  pinMode(FrontChestLimitSW, INPUT);
-  pinMode(LeftWaistLimitSW, INPUT);
-  pinMode(RightWaistLimitSW, INPUT);
-  pinMode(BackWaistLimitSW, INPUT);
-  pinMode(FrontWaistLimitSW, INPUT);
-  pinMode(LeftHipLimitSW, INPUT);
-  pinMode(RightHipLimitSW, INPUT);
-  pinMode(BackHipLimitSW, INPUT);
-
-  pinMode(NeckEn, OUTPUT);
-  pinMode(LeftChestEn, OUTPUT);
-  pinMode(RightChestEn, OUTPUT);
-  pinMode(BackChestEn, OUTPUT);
-  pinMode(FrontChestEn, OUTPUT);
-  pinMode(LeftWaistEn, OUTPUT);
-  pinMode(RightWaistEn, OUTPUT);
-  pinMode(BackWaistEn, OUTPUT);
-  pinMode(FrontWaistEn, OUTPUT);
-  pinMode(LeftHipEn, OUTPUT);
-  pinMode(RightHipEn, OUTPUT);
-  pinMode(BackHipEn, OUTPUT);
-
-  pinMode(RedLED, OUTPUT);
-  pinMode(YellowLED, OUTPUT);
-  pinMode(GreenLED, OUTPUT);
-
-  pinMode(TopFrontLeftTrig, OUTPUT);
-  pinMode(TopFrontLeftEcho, INPUT);
-  pinMode(TopFrontRightTrig, OUTPUT);
-  pinMode(TopFrontRightEcho, INPUT);
-  pinMode(TopBackLeftTrig, OUTPUT);
-  pinMode(TopBackLeftEcho, INPUT);
-  pinMode(TopBackRightTrig, OUTPUT);
-  pinMode(TopBackRightEcho, INPUT);
-  pinMode(BottomFrontLeftTrig, OUTPUT);
-  pinMode(BottomFrontLeftEcho, INPUT);
-  pinMode(BottomFrontRightTrig, OUTPUT);
-  pinMode(BottomFrontRightEcho, INPUT);
-  pinMode(BottomBackLeftTrig, OUTPUT);
-  pinMode(BottomBackLeftEcho, INPUT);
-  pinMode(BottomBackRightTrig, OUTPUT);
-  pinMode(BottomBackRightEcho, INPUT);
-
-  digitalWrite(NeckEn, HIGH);
-  digitalWrite(LeftChestEn, HIGH);
-  digitalWrite(RightChestEn, HIGH);
-  digitalWrite(BackChestEn, HIGH);
-  digitalWrite(FrontChestEn, HIGH);
-  digitalWrite(LeftWaistEn, HIGH);
-  digitalWrite(RightWaistEn, HIGH);
-  digitalWrite(BackWaistEn, HIGH);
-  digitalWrite(FrontWaistEn, HIGH);
-  digitalWrite(LeftHipEn, HIGH);
-  digitalWrite(RightHipEn, HIGH);
-  digitalWrite(BackHipEn, HIGH);
-
-  digitalWrite(RedLED, LOW);
-  digitalWrite(YellowLED, LOW);
-  digitalWrite(GreenLED, HIGH);
-
-  // Sets the two pins as Output
-  pinMode(NeckStep, OUTPUT);
-  pinMode(NeckDir, OUTPUT);
-  pinMode(LeftChestStep, OUTPUT);
-  pinMode(LeftChestDir, OUTPUT);
-  pinMode(RightChestStep, OUTPUT);
-  pinMode(RightChestDir, OUTPUT);
-  pinMode(BackChestStep, OUTPUT);
-  pinMode(BackChestDir, OUTPUT);
-  pinMode(FrontChestStep, OUTPUT);
-  pinMode(FrontChestDir, OUTPUT);
-  pinMode(LeftWaistStep, OUTPUT);
-  pinMode(LeftWaistDir, OUTPUT);
-  pinMode(RightWaistStep, OUTPUT);
-  pinMode(RightWaistDir, OUTPUT);
-  pinMode(BackWaistStep, OUTPUT);
-  pinMode(BackWaistDir, OUTPUT);
-  pinMode(FrontWaistStep, OUTPUT);
-  pinMode(FrontWaistDir, OUTPUT);
-  pinMode(LeftHipStep, OUTPUT);
-  pinMode(LeftHipDir, OUTPUT);
-  pinMode(RightHipStep, OUTPUT);
-  pinMode(RightHipDir, OUTPUT);
-  pinMode(BackHipStep, OUTPUT);
-  pinMode(BackHipDir, OUTPUT);
-
-  cli();//stop interrupts
-  //set timer1 interrupt at 1Hz
-  TCCR3A = 0;// set entire TCCR1A register to 0
-  TCCR3B = 0;// same for TCCR1B
-  TCNT3  = 0;//initialize counter value to 0
-  // set compare match register for 1hz increments
-  OCR3A = 3906;// = (16*10^6) / (1*1024) - 1 (must be <65536)
-  // turn on CTC mode
-  TCCR3B |= (1 << WGM12);
-  // Set CS10 and CS12 bits for 1024 prescaler
-  TCCR3B |= (1 << CS12) | (1 << CS10);
-  // enable timer compare interrupt
-  TIMSK3 |= (1 << OCIE3A);
-  sei();//allow interrupts
-}
 
 ISR(TIMER3_COMPA_vect) {
   if (systemStateFlag == runningConcernFlag) {
@@ -339,8 +235,6 @@ void moveIn() {
   }
   //digitalWrite(eN,HIGH);
 }
-
-int incomingByte = 0;
 
 void moveAllOut(float desiredCircumfrence[4]) {
   if((desiredCircumfrence[0] >= minCircumfrences[0]) &&
@@ -509,11 +403,6 @@ void moveAllIn() {
   digitalWrite(GreenLED, HIGH);
 }
 
-int currentCompareCnt[8];
-int zeroValueCnt[8];
-int tempUltrasonicValue[8];
-float percentageQualifier = 0.005;
-
 void ultrasonicRead() {
   for(int i=0; i<8; i++){
     zeroValueCnt[i] = 0;
@@ -634,9 +523,51 @@ void ultrasonicRead() {
   }
 }
 
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Start");
+  Serial1.begin(115200);
+
+  for(int i = NeckLimitSW; i < BackHipLimitSW; i++) pinMode(limitSwitchPins(i), INPUT);
+
+  for(int i = NeckStep; i < BackHipDir; i++) pinMode(stepperMotorPins(i), OUTPUT);
+  for(int i = NeckEn; i < BackWaistEn; i++){
+    pinMode(stepperMotorPins(i), OUTPUT);
+    digitalWrite(stepperMotorPins(i), HIGH);
+  }
+  for(int i = FrontWaistEn; i < BackHipEn; i++){
+    pinMode(stepperMotorPins(i), OUTPUT);
+    digitalWrite(stepperMotorPins(i), HIGH);
+  }
+
+  for(int i = RedLED; i < GreenLED; i++){
+    pinMode(LEDPins(i), OUTPUT);
+    digitalWrite(LEDPins(i), LOW);
+  }
+  digitalWrite(GreenLED, HIGH);
+
+  for(int i = TopFrontLeftTrig; i < BottomBackRightTrig; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
+  for(int i = TopFrontLeftEcho; i < BottomBackRightEcho; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
+
+  cli();//stop interrupts
+  //set timer1 interrupt at 1Hz
+  TCCR3A = 0;// set entire TCCR1A register to 0
+  TCCR3B = 0;// same for TCCR1B
+  TCNT3  = 0;//initialize counter value to 0
+  // set compare match register for 1hz increments
+  OCR3A = 3906;// = (16*10^6) / (1*1024) - 1 (must be <65536)
+  // turn on CTC mode
+  TCCR3B |= (1 << WGM12);
+  // Set CS10 and CS12 bits for 1024 prescaler
+  TCCR3B |= (1 << CS12) | (1 << CS10);
+  // enable timer compare interrupt
+  TIMSK3 |= (1 << OCIE3A);
+  sei();//allow interrupts
+}
+
 void loop() {
   float desiredCircumfrence[4] = {374, 961, 799, 969};
-  
+
   if (Serial.available() > 0) {
     incomingByte = Serial.read();
     const unsigned int MAX_MESSAGE_LENGTH = 12;
