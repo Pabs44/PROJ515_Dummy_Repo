@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ----- CHECKING IF ADDRESS FOR DATAFILE EXISTS -----
-ADDR_DATAFILE="/home/pablo/GitHub/PROJ515_Dummy_Repo/ESP32_Arduino_Code/ESP32_Code/data.csv"
+ADDR_DATAFILE="/home/pablo/GitHub/PROJ515_Dummy_Repo/ESP32_Arduino_Code/ESP32_Code/circ.csv"
 
 # CHECK THROUGH PuTTY.
 COM_PORT="/dev/rfcomm0"
@@ -16,6 +16,7 @@ then
 # ---------------------------------------------------
 else
     rfcomm connect /dev/rfcomm0 $MAC_ADDR 1 &
+    sleep 15
     # ----- CHECKING IF PORT IS OPERATIONAL ---------
     if ! command ls /dev/rfcomm* | grep -q "$COM_PORT"
     then
