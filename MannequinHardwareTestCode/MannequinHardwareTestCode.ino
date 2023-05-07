@@ -18,9 +18,13 @@ int reps = 0;
 
 int stopCmdFlag = 0;
 int incomingByte = 0;
+
 const unsigned int MAX_MESSAGE_LENGTH = 12;
 static char message[MAX_MESSAGE_LENGTH];
 static unsigned int message_pos = 0;
+
+static char smessage[MAX_MESSAGE_LENGTH];
+static unsigned int smessage_pos = 0;
 
 typedef enum {
   NeckLimitSW = 2,
@@ -198,23 +202,24 @@ void setup() {
 }
 
 void checkStopCmd(){
-  if (Serial.available() > 0) {
+  while (Serial.available() > 0) {
     incomingByte = Serial.read();
 
-    if ( incomingByte != '\n' && message_pos < MAX_MESSAGE_LENGTH - 1 ) {
+    if ( incomingByte != '\n' && smessage_pos < MAX_MESSAGE_LENGTH - 1 ) {
       //Add the incoming byte to our message
-      message[message_pos] = incomingByte;
-      message_pos++;
+      smessage[smessage_pos] = incomingByte;
+      smessage_pos++;
     } else {
       //Add null character to string
-      message[message_pos] = '\0';
+      smessage[smessage_pos] = '\0';
 
-      String msg = message; 
+      String smsg = smessage; 
 
-      if(msg == "stop"){
+      if(smsg == "stop"){
         stopCmdFlag = 1;
+        Serial.println("The test has stopped");
       }
-      message_pos = 0;
+      smessage_pos = 0;
     }
   }
 }
@@ -225,12 +230,7 @@ void testMotors(int steP,int dIr,int eN){
   digitalWrite(eN, LOW);
   
   while(stopCmdFlag == 0)
-  {
-    Serial.println(steP);
-    Serial.println(dIr);
-    Serial.println(eN);
-    
-    
+  { 
     digitalWrite(dIr, OUT); //moves out
     for (int i=0;i<stpGoal;i++) {
       digitalWrite(steP, HIGH);
@@ -272,6 +272,8 @@ void testLEDs(){
     digitalWrite(GreenLED, LOW);
   
     delay(250);
+
+    checkStopCmd();
   }
 }
 
@@ -352,8 +354,14 @@ void testUltrasonics(){
 }
 
 void testLimitSwitch(){
-  while((limitSwitchCheckSum <= 12) || (stopCmdFlag == 0)){
+  for(int i=0;i<12;i++){
+    limitSwitchCheck[i] = 0;
+  }
+  limitSwitchCheckSum = 0;
+  
+  while((limitSwitchCheckSum < 12) && (stopCmdFlag == 0)){
     limitSwitchPinNum = 2;
+    limitSwitchCheckSum = 0;
     
     for(int i=0;i<12;i++){
       if((digitalRead(limitSwitchPinNum) == 1) && (limitSwitchCheck[i] == 0)){
@@ -388,13 +396,13 @@ void testLimitSwitch(){
             Serial.println("The Front Waist Limit Switch has been pressed");
             break;
           case 9:
-            Serial.println("The Left Limit Switch has been pressed");
+            Serial.println("The Left Hip Limit Switch has been pressed");
             break;
           case 10:
-            Serial.println("The Right Limit Switch has been pressed");
+            Serial.println("The Right Hip Limit Switch has been pressed");
             break;
           case 11:
-            Serial.println("The Back Limit Switch has been pressed");
+            Serial.println("The Back Hip Limit Switch has been pressed");
             break;
         }
       }
@@ -405,9 +413,8 @@ void testLimitSwitch(){
     
     for(int i=0;i<12;i++){
       limitSwitchCheckSum += limitSwitchCheck[i];
-      Serial.print(limitSwitchCheck[i]);
-      Serial.println(" ");
     }
+    delay(250);
   }
 }
 
@@ -422,7 +429,7 @@ void loop() {
     } else {
       //Add null character to string
       message[message_pos] = '\0';
-
+      
       String msg = message;
       stopCmdFlag = 0;
       
@@ -486,6 +493,7 @@ void loop() {
         Serial.println("The Limit Switches have been selected to be tested");
         testLimitSwitch();
       }
+      message_pos = 0;
     }
   }
 }
