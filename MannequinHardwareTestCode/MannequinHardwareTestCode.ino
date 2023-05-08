@@ -1,32 +1,13 @@
 #define OUT LOW
 #define IN HIGH
 
-int stepDivision = 16;
-int stpGoal = 25 * stepDivision;
+enum LEDStates{
+  noProblemsFlag = 0,
+  runningConcernFlag,
+  showStopperFlag,
+};
 
-int limitSwitchPinNum = 2;
-int ultrasonicTrigPinNum = 54;
-int ultrasonicEchoPinNum = 55;
-
-int ultrasonicCheck[8];
-int limitSwitchCheck[12];
-int ultrasonicCheckSum;
-int limitSwitchCheckSum;
-int ultrasonicValue;
-
-int reps = 0;
-
-int stopCmdFlag = 0;
-int incomingByte = 0;
-
-const unsigned int MAX_MESSAGE_LENGTH = 12;
-static char message[MAX_MESSAGE_LENGTH];
-static unsigned int message_pos = 0;
-
-static char smessage[MAX_MESSAGE_LENGTH];
-static unsigned int smessage_pos = 0;
-
-typedef enum {
+enum limitSwitchPins{
   NeckLimitSW = 2,
   LeftChestLimitSW, //3
   RightChestLimitSW, //4
@@ -39,20 +20,15 @@ typedef enum {
   LeftHipLimitSW, //11
   RightHipLimitSW, //12
   BackHipLimitSW, //13
+};
 
-  FrontWaistEn, //14
-  LeftHipEn, //15
-  RightHipEn, //16
-  BackHipEn, //17
-} limitSwitchPins;
-
-typedef enum {
+enum LEDPins{
   RedLED = 18,
   YellowLED, //19
   GreenLED, //20
-} LEDPins;
+};
 
-typedef enum {
+enum stepperMotorPins{
   NeckStep = 22,
   NeckDir, //23
   LeftChestStep, //24
@@ -86,9 +62,14 @@ typedef enum {
   LeftWaistEn, //51
   RightWaistEn, //52
   BackWaistEn, //53
-} stepperMotorPins;
 
-typedef enum {
+  FrontWaistEn = 14, //14
+  LeftHipEn, //15
+  RightHipEn, //16
+  BackHipEn, //17
+};
+
+enum ultrasonicSensorPins{
   TopFrontLeftTrig = 54,
   TopFrontLeftEcho,
   TopFrontRightTrig,
@@ -105,162 +86,79 @@ typedef enum {
   BottomBackLeftEcho,
   BottomBackRightTrig,
   BottomBackRightEcho,
-} ultrasonicSensorPins;
+};
 
-void setup() {
-  Serial.begin(9600);
-  Serial.println("Start");
+int stepDivision = 16;
+int stpGoal = 25 * stepDivision;
 
-  pinMode(NeckLimitSW, INPUT);
-  pinMode(LeftChestLimitSW, INPUT);
-  pinMode(RightChestLimitSW, INPUT);
-  pinMode(BackChestLimitSW, INPUT);
-  pinMode(FrontChestLimitSW, INPUT);
-  pinMode(LeftWaistLimitSW, INPUT);
-  pinMode(RightWaistLimitSW, INPUT);
-  pinMode(BackWaistLimitSW, INPUT);
-  pinMode(FrontWaistLimitSW, INPUT);
-  pinMode(LeftHipLimitSW, INPUT);
-  pinMode(RightHipLimitSW, INPUT);
-  pinMode(BackHipLimitSW, INPUT);
+int limitSwitchPinNum = 2;
+int ultrasonicTrigPinNum = 54;
+int ultrasonicEchoPinNum = 55;
 
-  pinMode(NeckEn, OUTPUT);
-  pinMode(LeftChestEn, OUTPUT);
-  pinMode(RightChestEn, OUTPUT);
-  pinMode(BackChestEn, OUTPUT);
-  pinMode(FrontChestEn, OUTPUT);
-  pinMode(LeftWaistEn, OUTPUT);
-  pinMode(RightWaistEn, OUTPUT);
-  pinMode(BackWaistEn, OUTPUT);
-  pinMode(FrontWaistEn, OUTPUT);
-  pinMode(LeftHipEn, OUTPUT);
-  pinMode(RightHipEn, OUTPUT);
-  pinMode(BackHipEn, OUTPUT);
+int ultrasonicCheck[8];
+int limitSwitchCheck[12];
+int ultrasonicCheckSum;
+int limitSwitchCheckSum;
+int ultrasonicValue;
 
-  pinMode(RedLED, OUTPUT);
-  pinMode(YellowLED, OUTPUT);
-  pinMode(GreenLED, OUTPUT);
+int reps = 0;
 
-  pinMode(TopFrontLeftTrig, OUTPUT);
-  pinMode(TopFrontLeftEcho, INPUT);
-  pinMode(TopFrontRightTrig, OUTPUT);
-  pinMode(TopFrontRightEcho, INPUT);
-  pinMode(TopBackLeftTrig, OUTPUT);
-  pinMode(TopBackLeftEcho, INPUT);
-  pinMode(TopBackRightTrig, OUTPUT);
-  pinMode(TopBackRightEcho, INPUT);
-  pinMode(BottomFrontLeftTrig, OUTPUT);
-  pinMode(BottomFrontLeftEcho, INPUT);
-  pinMode(BottomFrontRightTrig, OUTPUT);
-  pinMode(BottomFrontRightEcho, INPUT);
-  pinMode(BottomBackLeftTrig, OUTPUT);
-  pinMode(BottomBackLeftEcho, INPUT);
-  pinMode(BottomBackRightTrig, OUTPUT);
-  pinMode(BottomBackRightEcho, INPUT);
+int stopCmdFlag = 0;
+int incomingByte = 0;
 
-  digitalWrite(NeckEn, HIGH);
-  digitalWrite(LeftChestEn, HIGH);
-  digitalWrite(RightChestEn, HIGH);
-  digitalWrite(BackChestEn, HIGH);
-  digitalWrite(FrontChestEn, HIGH);
-  digitalWrite(LeftWaistEn, HIGH);
-  digitalWrite(RightWaistEn, HIGH);
-  digitalWrite(BackWaistEn, HIGH);
-  digitalWrite(FrontWaistEn, HIGH);
-  digitalWrite(LeftHipEn, HIGH);
-  digitalWrite(RightHipEn, HIGH);
-  digitalWrite(BackHipEn, HIGH);
+const unsigned int MAX_MESSAGE_LENGTH = 12;
+static char message[MAX_MESSAGE_LENGTH];
+static unsigned int message_pos = 0;
 
-  pinMode(NeckStep, OUTPUT);
-  pinMode(NeckDir, OUTPUT);
-  pinMode(LeftChestStep, OUTPUT);
-  pinMode(LeftChestDir, OUTPUT);
-  pinMode(RightChestStep, OUTPUT);
-  pinMode(RightChestDir, OUTPUT);
-  pinMode(BackChestStep, OUTPUT);
-  pinMode(BackChestDir, OUTPUT);
-  pinMode(FrontChestStep, OUTPUT);
-  pinMode(FrontChestDir, OUTPUT);
-  pinMode(LeftWaistStep, OUTPUT);
-  pinMode(LeftWaistDir, OUTPUT);
-  pinMode(RightWaistStep, OUTPUT);
-  pinMode(RightWaistDir, OUTPUT);
-  pinMode(BackWaistStep, OUTPUT);
-  pinMode(BackWaistDir, OUTPUT);
-  pinMode(FrontWaistStep, OUTPUT);
-  pinMode(FrontWaistDir, OUTPUT);
-  pinMode(LeftHipStep, OUTPUT);
-  pinMode(LeftHipDir, OUTPUT);
-  pinMode(RightHipStep, OUTPUT);
-  pinMode(RightHipDir, OUTPUT);
-  pinMode(BackHipStep, OUTPUT);
-  pinMode(BackHipDir, OUTPUT);
+static char smessage[MAX_MESSAGE_LENGTH];
+static unsigned int smessage_pos = 0;
 
-  digitalWrite(RedLED, LOW);
-  digitalWrite(YellowLED, LOW);
-  digitalWrite(GreenLED, LOW);
-}
-
-void checkStopCmd(){
+bool checkStopCmd(){
   while (Serial.available() > 0) {
-    incomingByte = Serial.read();
+    String smsg = Serial.readStringUntil('\n'); 
 
-    if ( incomingByte != '\n' && smessage_pos < MAX_MESSAGE_LENGTH - 1 ) {
-      //Add the incoming byte to our message
-      smessage[smessage_pos] = incomingByte;
-      smessage_pos++;
-    } else {
-      //Add null character to string
-      smessage[smessage_pos] = '\0';
-
-      String smsg = smessage; 
-
-      if(smsg == "stop"){
-        stopCmdFlag = 1;
-        Serial.println("The test has stopped");
-      }
-      smessage_pos = 0;
+    if(smsg == "stop"){
+      stopCmdFlag = 1;
+      Serial.println("The test has stopped");
+      return true;
     }
   }
 }
 
-void testMotors(int steP,int dIr,int eN){
+void testMotors(int stepPin,int dirPin,int enPin){
   Serial.println("The requested motor should be moving back and forth");
 
-  digitalWrite(eN, LOW);
+  digitalWrite(enPin, LOW);
   
-  while(stopCmdFlag == 0)
-  { 
-    digitalWrite(dIr, OUT); //moves out
+  while(!checkStopCmd()){ 
+    digitalWrite(dirPin, OUT); //moves out
     for (int i=0;i<stpGoal;i++) {
-      digitalWrite(steP, HIGH);
+      digitalWrite(stepPin, HIGH);
       delayMicroseconds(500);
-      digitalWrite(steP, LOW);
+      digitalWrite(stepPin, LOW);
       delayMicroseconds(500);
     }  
   
     delay(100);
   
-    digitalWrite(dIr, IN); //moves out
+    digitalWrite(dirPin, IN); //moves out
     for (int i=0;i<stpGoal;i++) {
-      digitalWrite(steP, HIGH);
+      digitalWrite(stepPin, HIGH);
       delayMicroseconds(500);
-      digitalWrite(steP, LOW);
+      digitalWrite(stepPin, LOW);
       delayMicroseconds(500);
     }
   
-    delay(100); 
-
-    checkStopCmd();
+    delay(100);
   }
 
-  digitalWrite(eN, HIGH);
+  digitalWrite(enPin, HIGH);
 }
 
 void testLEDs(){
   Serial.println("The LEDs should be flashing at 2Hz");
   
-  while(stopCmdFlag == 0){
+  while(!checkStopCmd()){
     digitalWrite(RedLED, HIGH);
     digitalWrite(YellowLED, HIGH);
     digitalWrite(GreenLED, HIGH);
@@ -272,8 +170,6 @@ void testLEDs(){
     digitalWrite(GreenLED, LOW);
   
     delay(250);
-
-    checkStopCmd();
   }
 }
 
@@ -359,7 +255,7 @@ void testLimitSwitch(){
   }
   limitSwitchCheckSum = 0;
   
-  while((limitSwitchCheckSum < 12) && (stopCmdFlag == 0)){
+  while((limitSwitchCheckSum < 12) && !checkStopCmd()){
     limitSwitchPinNum = 2;
     limitSwitchCheckSum = 0;
     
@@ -408,8 +304,6 @@ void testLimitSwitch(){
       }
       limitSwitchPinNum++;
     }
-
-    checkStopCmd();
     
     for(int i=0;i<12;i++){
       limitSwitchCheckSum += limitSwitchCheck[i];
@@ -418,82 +312,96 @@ void testLimitSwitch(){
   }
 }
 
+void setup() {
+  Serial.begin(9600);
+  Serial.println("Start");
+
+  for(int i = NeckLimitSW; i < BackHipLimitSW; i++) pinMode(limitSwitchPins(i), INPUT);
+
+  for(int i = NeckStep; i < BackHipDir; i++) pinMode(stepperMotorPins(i), OUTPUT);
+  for(int i = NeckEn; i < BackWaistEn; i++){
+    pinMode(stepperMotorPins(i), OUTPUT);
+    digitalWrite(stepperMotorPins(i), HIGH);
+  }
+  for(int i = FrontWaistEn; i < BackHipEn; i++){
+    pinMode(stepperMotorPins(i), OUTPUT);
+    digitalWrite(stepperMotorPins(i), HIGH);
+  }
+
+  for(int i = RedLED; i < GreenLED; i++){
+    pinMode(LEDPins(i), OUTPUT);
+    digitalWrite(LEDPins(i), LOW);
+  }
+  digitalWrite(GreenLED, HIGH);
+
+  for(int i = TopFrontLeftTrig; i < BottomBackRightTrig; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
+  for(int i = TopFrontLeftEcho; i < BottomBackRightEcho; i+=2) pinMode(ultrasonicSensorPins(i), INPUT);
+}
+
 void loop() {
   if (Serial.available() > 0) {
-    incomingByte = Serial.read();
+    String msg = Serial.readStringUntil('\n');
+    stopCmdFlag = 0;
     
-    if ( incomingByte != '\n' && message_pos < MAX_MESSAGE_LENGTH - 1 ) {
-      //Add the incoming byte to our message
-      message[message_pos] = incomingByte;
-      message_pos++;
-    } else {
-      //Add null character to string
-      message[message_pos] = '\0';
-      
-      String msg = message;
-      stopCmdFlag = 0;
-      
-      if (msg == "n"){
-        Serial.println("The Neck motor has been selected");
-        testMotors(NeckStep,NeckDir,NeckEn);
-      } 
-      else if (msg == "fc"){
-        Serial.println("The Front Chest motor has been selected");
-        testMotors(FrontChestStep,FrontChestDir,FrontChestEn);
-      } 
-      else if (msg == "lc"){
-        Serial.println("The Left Chest motor has been selected");
-        testMotors(LeftChestStep,LeftChestDir,LeftChestEn);
-      } 
-      else if (msg == "rc"){
-        Serial.println("The Right Chest motor has been selected");
-        testMotors(RightChestStep,RightChestDir,RightChestEn);
-      } 
-      else if (msg == "bc"){
-        Serial.println("The Back Chest motor has been selected");
-        testMotors(BackChestStep,BackChestDir,BackChestEn);
-      } 
-      else if (msg == "fw"){
-        Serial.println("The Front Waist motor has been selected");
-        testMotors(FrontWaistStep,FrontWaistDir,FrontWaistEn);
-      } 
-      else if (msg == "lw"){
-        Serial.println("The Left Waist motor has been selected");
-        testMotors(LeftWaistStep,LeftWaistDir,LeftWaistEn);
-      } 
-      else if (msg == "rw"){
-        Serial.println("The Right Waist motor has been selected");
-        testMotors(RightWaistStep,RightWaistDir,RightWaistEn);
-      } 
-      else if (msg == "bw"){
-        Serial.println("The Back Waist motor has been selected");
-        testMotors(BackWaistStep,BackWaistDir,BackWaistEn);
-      } 
-      else if (msg == "lh"){
-        Serial.println("The Left Hip motor has been selected");
-        testMotors(LeftHipStep,LeftHipDir,LeftHipEn);
-      } 
-      else if (msg == "rh"){
-        Serial.println("The Right Hip motor has been selected");
-        testMotors(RightHipStep,RightHipDir,RightHipEn);
-      } 
-      else if (msg == "bh"){
-        Serial.println("The Back Hip motor has been selected");
-        testMotors(BackHipStep,BackHipDir,BackHipEn);
-      }
-      else if(msg == "leds"){
-        Serial.println("The LEDs have been selected to be tested");
-        testLEDs();
-      }
-      else if(msg == "us"){
-        Serial.println("The Ultrasonic Sensors have been selected to be tested");
-        testUltrasonics();
-      }
-      else if(msg == "ls"){
-        Serial.println("The Limit Switches have been selected to be tested");
-        testLimitSwitch();
-      }
-      message_pos = 0;
+    if (msg == "n"){
+      Serial.println("The Neck motor has been selected");
+      testMotors(NeckStep,NeckDir,NeckEn);
+    } 
+    else if (msg == "fc"){
+      Serial.println("The Front Chest motor has been selected");
+      testMotors(FrontChestStep,FrontChestDir,FrontChestEn);
+    } 
+    else if (msg == "lc"){
+      Serial.println("The Left Chest motor has been selected");
+      testMotors(LeftChestStep,LeftChestDir,LeftChestEn);
+    } 
+    else if (msg == "rc"){
+      Serial.println("The Right Chest motor has been selected");
+      testMotors(RightChestStep,RightChestDir,RightChestEn);
+    } 
+    else if (msg == "bc"){
+      Serial.println("The Back Chest motor has been selected");
+      testMotors(BackChestStep,BackChestDir,BackChestEn);
+    } 
+    else if (msg == "fw"){
+      Serial.println("The Front Waist motor has been selected");
+      testMotors(FrontWaistStep,FrontWaistDir,FrontWaistEn);
+    } 
+    else if (msg == "lw"){
+      Serial.println("The Left Waist motor has been selected");
+      testMotors(LeftWaistStep,LeftWaistDir,LeftWaistEn);
+    } 
+    else if (msg == "rw"){
+      Serial.println("The Right Waist motor has been selected");
+      testMotors(RightWaistStep,RightWaistDir,RightWaistEn);
+    } 
+    else if (msg == "bw"){
+      Serial.println("The Back Waist motor has been selected");
+      testMotors(BackWaistStep,BackWaistDir,BackWaistEn);
+    } 
+    else if (msg == "lh"){
+      Serial.println("The Left Hip motor has been selected");
+      testMotors(LeftHipStep,LeftHipDir,LeftHipEn);
+    } 
+    else if (msg == "rh"){
+      Serial.println("The Right Hip motor has been selected");
+      testMotors(RightHipStep,RightHipDir,RightHipEn);
+    } 
+    else if (msg == "bh"){
+      Serial.println("The Back Hip motor has been selected");
+      testMotors(BackHipStep,BackHipDir,BackHipEn);
+    }
+    else if(msg == "leds"){
+      Serial.println("The LEDs have been selected to be tested");
+      testLEDs();
+    }
+    else if(msg == "us"){
+      Serial.println("The Ultrasonic Sensors have been selected to be tested");
+      testUltrasonics();
+    }
+    else if(msg == "ls"){
+      Serial.println("The Limit Switches have been selected to be tested");
+      testLimitSwitch();
     }
   }
 }

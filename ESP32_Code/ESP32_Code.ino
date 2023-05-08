@@ -1,7 +1,7 @@
 #include "BluetoothSerial.h"
 
-#define TX_PIN 1
-#define RX_PIN 3
+#define RX2_PIN 16
+#define TX2_PIN 17
 
 BluetoothSerial SerialBT;
 
@@ -14,9 +14,9 @@ enum section{
 
 const int circsCnt = 4;
 
-// ADDED Values for now, will change once we have updated and tested the Bluetooth bash file on Linux.
-float circs[circsCnt] = {20.37, 10.20};
-float circsOld[circsCnt] = {20.37, 10.20};
+//Default values in case no circumferences are given
+float circs[circsCnt] = {10.00, 30.00, 40.00, 40.00};
+float circsOld[circsCnt] = {10.00, 30.00, 40.00, 40.00};
 bool recvBT = false;
 
 void txBT(String data){
@@ -53,7 +53,7 @@ void rxFileBT(){
         data = SerialBT.readStringUntil('\n');
         break;
       }
-      Serial.printf("Circumference %d: %x\n", i+1, data);
+      Serial.printf("Circumference %d: %s\n", i+1, data);
       circs[i] = data.toFloat();
       if(circs[i] <= 0 || circs[i] >= 50) recvBT = false;
       else recvBT = true;
@@ -62,35 +62,48 @@ void rxFileBT(){
 }
 
 void txMega(){
+  Serial2.flush();
   int numAttempts = 0;
+  bool handshake = false;
+  unsigned long timeout = 5000, msBegin = 0, msCurr = 0;
   // Makes sure that sending device is there.
+  Serial.println("Waiting for Mega");
+  while(Serial2.available() < 0);
+  Serial.println("Connected, sending handshake");
   Serial2.println('$');
 
-  for(int i = 0; i < circsCnt;){
-    Serial.printf("\nAttempt number %d", numAttempts);
-    if(Serial2.available() && Serial2.read() == '$'){
-      switch(section(i)){
-      case neck:
-        Serial2.printf("n%d\n", circs[i]);
-        break;
-      case chest:
-        Serial2.printf("c%d\n", circs[i]);
-        break;
-      case waist:
-        Serial2.printf("w%d\n", circs[i]);
-        break;
-      case hips:
-        Serial2.printf("h%d\n", circs[i]);
-        break;
-      }
-      i++;
-    }else{
-      numAttempts++;
-      Serial.println("\nUnable to connect, reattempting...");
-      delay(100);
+  msBegin = millis();
+  while(Serial2.read() != '$'){
+    msCurr = millis();
+    if(msCurr - msBegin >= timeout){
+      Serial.println("Handshake timed out");
+      return;
     }
+  }
+  handshake == true;
+  Serial.println("Handshake confirmed");
 
-    if(numAttempts > 5) break;
+  Serial2.print('!');
+  for(int i = 0; i < circsCnt; i++){
+    switch(section(i)){
+    case neck:
+      Serial.println("Outbound");
+      Serial2.print('n');
+      Serial2.println(circs[i]);
+      break;
+    case chest:
+      Serial2.print('c');
+      Serial2.println(circs[i]);
+      break;
+    case waist:
+      Serial2.print('w');
+      Serial2.println(circs[i]);
+      break;
+    case hips:
+      Serial2.print('h');
+      Serial2.println(circs[i]);
+      break;
+    }
   }
 }
 
@@ -101,7 +114,7 @@ void rxMega() {
 
 void setup() {
   Serial.begin(115200);
-  Serial2.begin(115200, RX_PIN, TX_PIN);
+  Serial2.begin(115200, SERIAL_8N1, RX2_PIN, TX2_PIN);
   SerialBT.begin();
   Serial.println("Bluetooth device is ready to pair");
 
