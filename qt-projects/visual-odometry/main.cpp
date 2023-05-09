@@ -25,7 +25,7 @@ struct str{
 }comp;
 
 const int startFrame = 41;
-const int skipFrame = 20;
+const int skipFrame = 10;
 
 const string circPointsName = "pos3D";
 const string fileHipCirc = "point-clouds/hipCirc.xyz";       //Output file path for the hip circumference points
@@ -34,7 +34,7 @@ const string fileChestCirc = "point-clouds/chestCirc.xyz";   //Output file path 
 const string fileNeckCirc = "point-clouds/neckCirc.xyz";     //Output file path for the neck circumference points
 const string file3D = "point-clouds/points3D.xyz";           //Output file path for point coordinates in real space
 const string filePoints = "points.xml";                      //Output file path for feature location within image space
-const string fileCircs = "circ.xml";
+const string fileCircs = "./test-data/circ.yaml";
 
 const string fileML = "bodypose_3dbp_alfonf.json";            //Input file path for machine learning skeleton coordinates
 const string fileVid = "./photos/alfonso_front_low.mp4";      //Input file path
@@ -618,7 +618,7 @@ int main(){
                 break;
             }
 
-            fs3D << chosenSection << int(circVal/10);
+            fs3D << chosenSection << to_string(circVal);
         }
         fs3D.release();
 
