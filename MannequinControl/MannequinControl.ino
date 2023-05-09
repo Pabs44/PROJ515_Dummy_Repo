@@ -3,14 +3,16 @@
 //const int limitPin = 2;
 #define OUT LOW
 #define IN HIGH
+#define RX1_PIN 19
+#define TX1_PIN 18
 
-typedef enum {
+enum LEDStates{
   noProblemsFlag = 0,
   runningConcernFlag,
   showStopperFlag,
-} LEDStates;
+};
 
-typedef enum {
+enum limitSwitchPins{
   NeckLimitSW = 2,
   LeftChestLimitSW, //3
   RightChestLimitSW, //4
@@ -23,15 +25,15 @@ typedef enum {
   LeftHipLimitSW, //11
   RightHipLimitSW, //12
   BackHipLimitSW, //13
-} limitSwitchPins;
+};
 
-typedef enum {
+enum LEDPins{
   RedLED = 18,
   YellowLED, //19
   GreenLED, //20
-} LEDPins;
+};
 
-typedef enum {
+enum stepperMotorPins{
   NeckStep = 22,
   NeckDir, //23
   LeftChestStep, //24
@@ -70,9 +72,9 @@ typedef enum {
   LeftHipEn, //15
   RightHipEn, //16
   BackHipEn, //17
-} stepperMotorPins;
+};
 
-typedef enum {
+enum ultrasonicSensorPins{
   TopFrontLeftTrig = 54,
   TopFrontLeftEcho,
   TopFrontRightTrig,
@@ -89,40 +91,41 @@ typedef enum {
   BottomBackLeftEcho,
   BottomBackRightTrig,
   BottomBackRightEcho,
-} ultrasonicSensorPins;
+};
 
 const int motSpd = 200;
+const int circsCnt = 4;
+const int motCnt = 12;
 
-int steP;
-int dIr;
-int eN;
-int liMit;
+int stepPin;
+int dirPin;
+int enPin;
+int swPin;
 int stpGoal = 1 * 16;
-int totalSteps = 0;
 
-int maxSteps[12] = {100 * 16, 110 * 16, 80 * 16, 80 * 16, 40 * 16, 20 * 16, 30 * 16, 20 * 16, 40 * 16, 50 * 16, 30 * 16, 20 * 16};
+int maxSteps[motCnt] = {100 * 16, 110 * 16, 80 * 16, 80 * 16, 40 * 16, 20 * 16, 30 * 16, 20 * 16, 40 * 16, 50 * 16, 30 * 16, 20 * 16};
 
 //minimum active circumfrence values of the mannequin in mm
 //NECK, CHEST, WAIST, HIP
-float minCircumfrences[4] = {365, 921, 750, 925};
+float minCircumfrences[circsCnt] = {365, 921, 750, 925};
 
 //maximum active circumfrence values of the mannequin in mm
-float maxCircumfrences[4] = {374, 961, 799, 969};
+float maxCircumfrences[circsCnt] = {374, 961, 799, 969};
 
 //difference between the min and max values of the mannequin
-float activeCirRange[4];
+float activeCirRange[circsCnt];
 
 //desired circumfrence values for the mannequin in mm
-float desiredCircumfrence[4] = {374, 961, 799, 969};
+float desiredCircumfrence[circsCnt] = {374, 961, 799, 969};
 
 //distance mannequin needs to move to reach desired measurments
-float desiredCirDiff[4];
+float desiredCirDiff[circsCnt];
 
 //array to save percentage mechanisms have to move
-float percentageMovement[4];
+float percentageMovement[circsCnt];
 
 //storing the number of steps needed for each motor to move the mechanism to create the desired circumfrence
-int desiredStepNum[12];
+int desiredStepNum[motCnt];
 
 int stepPinNum = 22;
 int dirPinNum = 23;
@@ -164,22 +167,11 @@ ISR(TIMER3_COMPA_vect) {
 }
 
 void showStopper() {
-  digitalWrite(NeckEn, HIGH);
-  digitalWrite(LeftChestEn, HIGH);
-  digitalWrite(RightChestEn, HIGH);
-  digitalWrite(BackChestEn, HIGH);
-  digitalWrite(FrontChestEn, HIGH);
-  digitalWrite(LeftWaistEn, HIGH);
-  digitalWrite(RightWaistEn, HIGH);
-  digitalWrite(BackWaistEn, HIGH);
-  digitalWrite(FrontWaistEn, HIGH);
-  digitalWrite(LeftHipEn, HIGH);
-  digitalWrite(RightHipEn, HIGH);
-  digitalWrite(BackHipEn, HIGH);
+  for(int i = NeckEn; i < BackWaistEn; i++) digitalWrite(stepperMotorPins(i), HIGH);
+  for(int i = FrontWaistEn; i < BackHipEn; i++) digitalWrite(stepperMotorPins(i), HIGH);
 
   systemStateFlag = showStopperFlag;
-  totalSteps = 0;
-  for (int i=0;i<12;i++) desiredStepNum[i] = 0;
+  for (int i=0;i<motCnt;i++) desiredStepNum[i] = 0;
 
   Serial.println("The system has encountered a Show Stopper level problem");
 }
@@ -192,20 +184,20 @@ void runningConcern() {
 
 void moveOut() {
 
-  digitalWrite(eN, LOW);
+  digitalWrite(enPin, LOW);
   //Serial.println("Move Out");
-  digitalWrite(dIr, OUT); //moves out
+  digitalWrite(dirPin, OUT); //moves out
 
   for (int i = 0; i < 50 * 16; i++) {
     //Serial.println("for");
-    digitalWrite(steP, HIGH);
+    digitalWrite(stepPin, HIGH);
     delayMicroseconds(motSpd);
-    digitalWrite(steP, LOW);
+    digitalWrite(stepPin, LOW);
     delayMicroseconds(motSpd);
 
     //Serial.println(i);
   }
-  //digitalWrite(eN,HIGH);
+  //digitalWrite(enPin,HIGH);
 
   // numOfSteps += 10;
   //  Serial.println(numOfSteps);
@@ -214,26 +206,26 @@ void moveOut() {
 void moveIn() {
   numOfSteps = 0;
 
-  digitalWrite(eN, LOW);
-  digitalWrite(dIr, IN); //moves in
+  digitalWrite(enPin, LOW);
+  digitalWrite(dirPin, IN); //moves in
 
   int check = 0;
   while (check == 0) {
     Serial.println(check);
-    if (digitalRead(liMit) == HIGH) {
+    if (digitalRead(swPin) == HIGH) {
       delay(50);
-      if (digitalRead(liMit) == HIGH) {
+      if (digitalRead(swPin) == HIGH) {
         check = 1;
         Serial.println(check);
       }
     }
     Serial.println(check);
-    digitalWrite(steP, HIGH);
+    digitalWrite(stepPin, HIGH);
     delayMicroseconds(motSpd);
-    digitalWrite(steP, LOW);
+    digitalWrite(stepPin, LOW);
     delayMicroseconds(motSpd);
   }
-  //digitalWrite(eN,HIGH);
+  //digitalWrite(enPin,HIGH);
 }
 
 void moveAllOut(float desiredCircumfrence[4]) {
@@ -268,18 +260,18 @@ void moveAllOut(float desiredCircumfrence[4]) {
     for (; pos < 9; pos++) desiredStepNum[pos] = maxSteps[pos] * percentageMovement[2];
     for (; pos < 12; pos++) desiredStepNum[pos] = maxSteps[pos] * percentageMovement[3];
   
-    totalSteps = 0;
-    for (int i = 0; i < 12; i++) {
+    int totalSteps = 0;
+    for (int i = 0; i < motCnt; i++) {
       //desiredStepNum[i] *= scalar;
       totalSteps += desiredStepNum[i];
   
       digitalWrite(dirPinNum, OUT);
       dirPinNum += 2;
     }
-  
+
     int cnt = 0;
     while (totalSteps >= 1) {
-      if (cnt >= 12){
+      if (cnt >= motCnt){
         cnt = 0;
         ultrasonicRead();
       }
@@ -321,7 +313,7 @@ void moveAllOut(float desiredCircumfrence[4]) {
   }
   else{
     systemStateFlag = runningConcernFlag;
-    Serial.println("The measurements provided cannot be achived because they are not within the active range of the mannequin");
+    Serial.println("The measurements provided cannot be achieved because they are not within the active range of the mannequin");
   }
 }
 
@@ -335,7 +327,7 @@ void moveAllIn() {
   limitSWPinNum = 2;
   enablePinNum = 46;
 
-  for (int i = 0; i < 12; i++) {
+  for (int i = 0; i < motCnt; i++) {
     digitalWrite(dirPinNum, IN);
     dirPinNum += 2;
   }
@@ -394,7 +386,7 @@ void moveAllIn() {
     enablePinNum++;
     cnt++;
   }
-  while (swChk < 12);
+  while (swChk < motCnt);
   
   Serial.println("The mannequin is at its minimum");
 
@@ -523,6 +515,89 @@ void ultrasonicRead() {
   }
 }
 
+float rxESP(float circs[4]){
+  Serial1.flush();
+  byte recvCircs = 0b0000;
+  bool handshake = false;
+  unsigned long timeout = 5000, msBegin = 0, msCurr = 0;
+
+  Serial.println("\nWaiting for ESP");
+  while(Serial1.available() < 0);
+  Serial.println("Connected");
+
+  msBegin = millis();
+  while(Serial1.read() != '$'){
+    msCurr = millis();
+    if(msCurr - msBegin >= timeout){
+      Serial.println("Handshake timed out");
+      return;
+    }
+  }
+  handshake = true;
+  Serial.println("Handshake initiated, sending confirmation");
+  Serial1.println('$');
+
+  while (handshake && recvCircs != 0b1111) {
+    int numAttempts = 0, badData = 0, goodData = 0;
+
+    if(Serial1.available() > 0){
+      Serial1.readStringUntil('!');
+      for(int i = 0; i < circsCnt; i++){
+        Serial.println("Next circ");
+        String msg = Serial1.readStringUntil('\n');
+        if(msg.charAt(0) == 'n'){
+          msg.remove(0,1);
+          Serial.println(msg);
+          circs[i] = msg.toFloat();
+          recvCircs |= 0b0001;
+          goodData++;
+          badData = 0;
+        }else if(msg.charAt(0) == 'c'){
+          msg.remove(0,1);
+          Serial.println(msg);
+          circs[i] = msg.toFloat();
+          recvCircs |= 0b0010;
+          goodData++;
+          badData = 0;
+        }else if(msg.charAt(0) == 'w'){
+          msg.remove(0,1);
+          Serial.println(msg);
+          circs[i] = msg.toFloat();
+          recvCircs |= 0b0100;
+          goodData++;
+          badData = 0;
+        }else if(msg.charAt(0) == 'h'){
+          msg.remove(0,1);
+          Serial.println(msg);
+          circs[i] = msg.toFloat();
+          recvCircs |= 0b1000;
+          goodData++;
+          badData = 0;
+        }else{
+          Serial.println("Bad data coming in");
+          badData++;
+        }
+
+        if(goodData >= 4){
+          Serial.println("All circumferences recorded");
+          return;
+        }else if(badData >= 12){
+          Serial.println("Too much bad data, fix ESP output");
+          return;
+        }
+      }
+    }else{
+      numAttempts++;
+      Serial.println("\nUnable to connect, reattempting...");
+    }
+
+    if(numAttempts > 5){
+      Serial.println("ESP disconnected, reattempt connection");
+      return;
+    }
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Start");
@@ -547,7 +622,7 @@ void setup() {
   digitalWrite(GreenLED, HIGH);
 
   for(int i = TopFrontLeftTrig; i < BottomBackRightTrig; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
-  for(int i = TopFrontLeftEcho; i < BottomBackRightEcho; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
+  for(int i = TopFrontLeftEcho; i < BottomBackRightEcho; i+=2) pinMode(ultrasonicSensorPins(i), INPUT);
 
   cli();//stop interrupts
   //set timer1 interrupt at 1Hz
@@ -566,23 +641,17 @@ void setup() {
 }
 
 void loop() {
-  float desiredCircumfrence[4] = {374, 961, 799, 969};
+  float desiredCircumference[circsCnt] = {374, 961, 799, 969};
 
-  if (Serial.available() > 0) {
-    incomingByte = Serial.read();
-    const unsigned int MAX_MESSAGE_LENGTH = 12;
-    static char message[MAX_MESSAGE_LENGTH];
-    static unsigned int message_pos = 0;
+  rxESP(desiredCircumference);
+  Serial.println();
+  for(int i = 0; i < circsCnt; i++) Serial.println(desiredCircumference[i]);
+  Serial.println();
+  Serial.flush();
 
-    if ( incomingByte != '\n' && message_pos < MAX_MESSAGE_LENGTH - 1 ) {
-      //Add the incoming byte to our message
-      message[message_pos] = incomingByte;
-      message_pos++;
-    } else {
-      //Add null character to string
-      message[message_pos] = '\0';
-
-      String msg = message;
+  while(true){
+    if (Serial.availableForWrite() > 0) {
+      String msg = Serial.readStringUntil('\n');
 
       if (msg == "i") {
         Serial.println("Received i");
@@ -594,86 +663,86 @@ void loop() {
         incomingByte = 0;
       } else if (msg == "n") {
         Serial.println("Neck");
-        steP = NeckStep;
-        dIr = NeckDir;
-        eN = NeckEn;
-        liMit = NeckLimitSW;
+        stepPin = NeckStep;
+        dirPin = NeckDir;
+        enPin = NeckEn;
+        swPin = NeckLimitSW;
       } else if (msg == "fc") {
         Serial.println("Front Chest");
-        steP = FrontChestStep;
-        dIr = FrontChestDir;
-        eN = FrontChestEn;
-        liMit = FrontChestLimitSW;
+        stepPin = FrontChestStep;
+        dirPin = FrontChestDir;
+        enPin = FrontChestEn;
+        swPin = FrontChestLimitSW;
       } else if (msg == "lc") {
         Serial.println("Left Chest");
-        steP = LeftChestStep;
-        dIr = LeftChestDir;
-        eN = LeftChestEn;
-        liMit = LeftChestLimitSW;
+        stepPin = LeftChestStep;
+        dirPin = LeftChestDir;
+        enPin = LeftChestEn;
+        swPin = LeftChestLimitSW;
       } else if (msg == "rc") {
         Serial.println("Right Chest");
-        steP = RightChestStep;
-        dIr = RightChestDir;
-        eN = RightChestEn;
-        liMit = RightChestLimitSW;
+        stepPin = RightChestStep;
+        dirPin = RightChestDir;
+        enPin = RightChestEn;
+        swPin = RightChestLimitSW;
       } else if (msg == "bc") {
         Serial.println("Back Chest");
-        steP = BackChestStep;
-        dIr = BackChestDir;
-        eN = BackChestEn;
-        liMit = BackChestLimitSW;
+        stepPin = BackChestStep;
+        dirPin = BackChestDir;
+        enPin = BackChestEn;
+        swPin = BackChestLimitSW;
       } else if (msg == "fw") {
         Serial.println("Front Waist");
-        steP = FrontWaistStep;
-        dIr = FrontWaistDir;
-        eN = FrontWaistEn;
-        liMit = FrontWaistLimitSW;
+        stepPin = FrontWaistStep;
+        dirPin = FrontWaistDir;
+        enPin = FrontWaistEn;
+        swPin = FrontWaistLimitSW;
       } else if (msg == "lw") {
         Serial.println("Left Waist");
-        steP = LeftWaistStep;
-        dIr = LeftWaistDir;
-        eN = LeftWaistEn;
-        liMit = LeftWaistLimitSW;
+        stepPin = LeftWaistStep;
+        dirPin = LeftWaistDir;
+        enPin = LeftWaistEn;
+        swPin = LeftWaistLimitSW;
       } else if (msg == "rw") {
         Serial.println("Right Waist");
-        steP = RightWaistStep;
-        dIr = RightWaistDir;
-        eN = RightWaistEn;
-        liMit = RightWaistLimitSW;
+        stepPin = RightWaistStep;
+        dirPin = RightWaistDir;
+        enPin = RightWaistEn;
+        swPin = RightWaistLimitSW;
       } else if (msg == "bw") {
         Serial.println("Back Waist");
-        steP = BackWaistStep;
-        dIr = BackWaistDir;
-        eN = BackWaistEn;
-        liMit = BackWaistLimitSW;
+        stepPin = BackWaistStep;
+        dirPin = BackWaistDir;
+        enPin = BackWaistEn;
+        swPin = BackWaistLimitSW;
       } else if (msg == "lh") {
         Serial.println("Left Hip");
-        steP = LeftHipStep;
-        dIr = LeftHipDir;
-        eN = LeftHipEn;
-        liMit = LeftHipLimitSW;
+        stepPin = LeftHipStep;
+        dirPin = LeftHipDir;
+        enPin = LeftHipEn;
+        swPin = LeftHipLimitSW;
       } else if (msg == "rh") {
         Serial.println("Right Hip");
-        steP = RightHipStep;
-        dIr = RightHipDir;
-        eN = RightHipEn;
-        liMit = RightHipLimitSW;
+        stepPin = RightHipStep;
+        dirPin = RightHipDir;
+        enPin = RightHipEn;
+        swPin = RightHipLimitSW;
       } else if (msg == "bh") {
         Serial.println("Back Hip");
-        steP = BackHipStep;
-        dIr = BackHipDir;
-        eN = BackHipEn;
-        liMit = BackHipLimitSW;
-      }
-      else if (msg == "ao") moveAllOut(desiredCircumfrence);
-      else if (msg == "ai") moveAllIn();
-      else if (msg == "reset"){
+        stepPin = BackHipStep;
+        dirPin = BackHipDir;
+        enPin = BackHipEn;
+        swPin = BackHipLimitSW;
+      } else if (msg == "ao") {
+        Serial.println("Moving out to desired circumferences");
+        moveAllOut(desiredCircumfrence);
+      } else if (msg == "ai") {
+        Serial.println("Moving to minimum position");
+        moveAllIn();
+      } else if (msg == "reset") {
         Serial.println("Reset");
         systemStateFlag = noProblemsFlag;
       }
-
-      //Reset for the next message
-      message_pos = 0;
     }
   }
 }
