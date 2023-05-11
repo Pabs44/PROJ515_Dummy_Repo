@@ -141,8 +141,8 @@ double findCirc(Mat pose25d, vector<Matx31d> realPos3D, vector<Point2f> points, 
     vector<Point2f> circXZ;
     //Filter and place all body section feature points into a vector
     for(int i = 0; i < (int)points.size(); i++){
-        Matx31d pointPos((double)points.at(i).x, (double)points.at(i).y, focal);
-        if(pointPos(1) > yMin && pointPos(1) < yMax && pointPos(0) > xMin && pointPos(0) < xMax){
+        Point2f pointPos((double)points.at(i).x, (double)points.at(i).y);
+        if(pointPos.y > yMin && pointPos.y < yMax && pointPos.x > xMin && pointPos.x < xMax){
             if(firstI){
                 firstI = false;
                 minZ = realPos3D[i](2);
