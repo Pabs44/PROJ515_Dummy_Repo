@@ -91,7 +91,7 @@ Scalar randColor(){
 }
 
 //Returns circumferences for different parts of the body - FIX LIMITS THEY ARE NOT CORRECT
-double findCirc(Mat pose25d, vector<Matx31d> realPos3D, vector<Point2f> points, double focal, bodySections bodySection){
+double findCirc(Mat pose25d, vector<Matx31d> realPos3D, vector<Point2f> points, bodySections bodySection){
     string filename;
     double xMin=0, xMax=0, yMin=0, yMax=0;
     switch (bodySection){
@@ -141,8 +141,8 @@ double findCirc(Mat pose25d, vector<Matx31d> realPos3D, vector<Point2f> points, 
     vector<Point2f> circXZ;
     //Filter and place all body section feature points into a vector
     for(int i = 0; i < (int)points.size(); i++){
-        Matx31d pointPos((double)points.at(i).x, (double)points.at(i).y, focal);
-        if(pointPos(1) > yMin && pointPos(1) < yMax && pointPos(0) > xMin && pointPos(0) < xMax){
+        Point2f pointPos((double)points.at(i).x, (double)points.at(i).y);
+        if(pointPos.y > yMin && pointPos.y < yMax && pointPos.x > xMin && pointPos.x < xMax){
             if(firstI){
                 firstI = false;
                 minZ = realPos3D[i](2);
@@ -159,6 +159,7 @@ double findCirc(Mat pose25d, vector<Matx31d> realPos3D, vector<Point2f> points, 
     //Sort body section feature points along the x-axis and compute the circumference by following along the points
     sort(circXZ.begin(), circXZ.end(), comp);
     for(int i = 0; i < (int)circXZ.size()-1; i++){
+        if(abs(circXZ.at(i+1).y - circXZ.at(i).y) > 40) circXZ.at(i).y = circXZ.at(i-1).y;
         double dx = circXZ.at(i+1).x - circXZ.at(i).x;
         double dz = (circXZ.at(i+1).y-minZ) - (circXZ.at(i).y-minZ);
         circVal += sqrt(pow(dx, 2) + pow(dz, 2));
@@ -603,7 +604,7 @@ int main(){
         }
         string chosenSection;
         for(int bodySection = BODY_NECK; bodySection <= BODY_HIP; bodySection++){
-            double circVal = findCirc(pose25d, realPos3D, points[currentFrame-1], focal, (bodySections)bodySection);
+            double circVal = findCirc(pose25d, realPos3D, points[currentFrame-1], (bodySections)bodySection);
 
             switch (bodySection){
             case BODY_NECK:
