@@ -124,6 +124,28 @@ void setup() {
 void loop() {
   for(int i = 0; i < circsCnt; i++) circsOld[i] = circs[i];
 
+  for(int i = 0; i < circsCnt; i++){
+    switch(i){
+    case 0:
+      Serial.println("Neck: ");
+      break;
+    case 1:
+      Serial.println("Chest: ");
+      break;
+    case 2:
+      Serial.println("Waist: ");
+      break;
+    case 3:
+      Serial.println("Hips: ");
+      break;
+    }
+    Serial.flush();
+    while(Serial.available() <= 0);
+    String msg = Serial.readStringUntil('\n');
+    Serial.println(msg);
+    desiredCircumference[i] = msg.toFloat();
+  }
+
   rxFileBT();
   delay(1000);
   txMega();

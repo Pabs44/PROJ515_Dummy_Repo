@@ -468,8 +468,6 @@ void ultrasonicRead() {
     if(currentCompareCnt[i] >= 10){
       showStopper();
 
-      Serial.println("yo papa");
-
       switch(i){
         case 0:
           Serial.println("The Top Front Left Ultrasonic sensor is repeatedly returning similar values");
