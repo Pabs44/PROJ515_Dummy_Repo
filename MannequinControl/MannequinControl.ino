@@ -762,6 +762,8 @@ void loop() {
       if(Serial.readStringUntil('\n') == "y"){
         for(int i = 0; i < circsCnt; i++) desiredCircumference[i] = tmpCircs[i];
         Serial.println("New data accepted");
+        moveAllIn();
+        moveAllOut(desiredCircumference);
       }else Serial.println("New data rejected");
     }
   }
