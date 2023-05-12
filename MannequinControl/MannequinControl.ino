@@ -1,6 +1,3 @@
-//const int stepPin = 22;
-//const int dirPin = 23;
-//const int limitPin = 2;
 #define OUT LOW
 #define IN HIGH
 #define RX1_PIN 19
@@ -24,13 +21,13 @@ enum limitSwitchPins{
   FrontWaistLimitSW, //10
   LeftHipLimitSW, //11
   RightHipLimitSW, //12
-  BackHipLimitSW, //13
+  BackHipLimitSW //13
 };
 
 enum LEDPins{
-  RedLED = 18,
-  YellowLED, //19
-  GreenLED, //20
+  RedLED = 20,
+  YellowLED, //21
+  GreenLED = 50
 };
 
 enum stepperMotorPins{
@@ -63,15 +60,15 @@ enum stepperMotorPins{
   LeftChestEn, //47
   RightChestEn, //48
   BackChestEn, //49
-  FrontChestEn, //50
-  LeftWaistEn, //51
+  
+  LeftWaistEn = 51,
   RightWaistEn, //52
   BackWaistEn, //53
 
   FrontWaistEn = 14, //14
   LeftHipEn, //15
   RightHipEn, //16
-  BackHipEn, //17
+  BackHipEn //17
 };
 
 enum ultrasonicSensorPins{
@@ -90,84 +87,91 @@ enum ultrasonicSensorPins{
   BottomBackLeftTrig,
   BottomBackLeftEcho,
   BottomBackRightTrig,
-  BottomBackRightEcho,
+  BottomBackRightEcho
 };
 
 const int motSpd = 200;
 const int circsCnt = 4;
 const int motCnt = 12;
+const int stpGoal = 1 * 16;
+
+const int maxSteps[motCnt] = {
+  100 * 16, //
+  110 * 16, //
+  80 * 16,  //
+  80 * 16,  //
+  40 * 16,  //
+  20 * 16,  //
+  30 * 16,  //
+  20 * 16,  //
+  40 * 16,  //
+  50 * 16,  //
+  30 * 16,  //
+  20 * 16   //
+};
+
+const float percentageQualifier = 0.005;
 
 int stepPin;
 int dirPin;
 int enPin;
 int swPin;
-int stpGoal = 1 * 16;
 
-int maxSteps[motCnt] = {100 * 16, 110 * 16, 80 * 16, 80 * 16, 40 * 16, 20 * 16, 30 * 16, 20 * 16, 40 * 16, 50 * 16, 30 * 16, 20 * 16};
-
-//minimum active circumfrence values of the mannequin in mm
 //NECK, CHEST, WAIST, HIP
-float minCircumfrences[circsCnt] = {365, 921, 750, 925};
+float minCircumferences[circsCnt] = {365, 921, 750, 925}; //minimum active Circumference values of the mannequin in mm
+float maxCircumferences[circsCnt] = {374, 961, 799, 969}; //maximum active Circumference values of the mannequin in mm
+float activeCirRange[circsCnt];     //difference between the min and max values of the mannequin
+float desiredCirDiff[circsCnt];     //distance mannequin needs to move to reach desired measurments
+float percentageMovement[circsCnt]; //array to save percentage mechanisms have to move
 
-//maximum active circumfrence values of the mannequin in mm
-float maxCircumfrences[circsCnt] = {374, 961, 799, 969};
-
-//difference between the min and max values of the mannequin
-float activeCirRange[circsCnt];
-
-//desired circumfrence values for the mannequin in mm
-float desiredCircumfrence[circsCnt] = {374, 961, 799, 969};
-
-//distance mannequin needs to move to reach desired measurments
-float desiredCirDiff[circsCnt];
-
-//array to save percentage mechanisms have to move
-float percentageMovement[circsCnt];
-
-//storing the number of steps needed for each motor to move the mechanism to create the desired circumfrence
-int desiredStepNum[motCnt];
+int desiredStepNum[motCnt];         //storing the number of steps needed for each motor to move the mechanism to create the desired Circumference
 
 int stepPinNum = 22;
 int dirPinNum = 23;
 int limitSWPinNum = 2;
 int enablePinNum = 46;
+
 int ultrasonicTrigPinNum = 54;
 int ultrasonicEchoPinNum = 55;
 long minimumUltrasonicValue[8];
 long ultrasonicValue[8];
 int ultrasonicFlag;
 
-int RedLEDState = 0;
-int YellowLEDState = 0;
-int GreenLEDState = 1;
-
 int numOfSteps = 0;
 
 int currentCompareCnt[8];
 int zeroValueCnt[8];
 int tempUltrasonicValue[8];
-float percentageQualifier = 0.005;
-
-int incomingByte = 0;
 
 int systemStateFlag = noProblemsFlag;
+
+int tmr5Cnt = 0;
+bool tmrESPState = false;
 
 ISR(TIMER3_COMPA_vect) {
   if (systemStateFlag == runningConcernFlag) {
     digitalWrite(RedLED, LOW);
     digitalWrite(GreenLED, LOW);
     digitalWrite(YellowLED, !digitalRead(YellowLED));
-  }
-
-  else if (systemStateFlag == showStopperFlag) {
+  } else if (systemStateFlag == showStopperFlag) {
     digitalWrite(YellowLED, LOW);
     digitalWrite(GreenLED, LOW);
     digitalWrite(RedLED, !digitalRead(RedLED));
   }
 }
 
+ISR(TIMER5_COMPA_vect) {
+  if(tmr5Cnt > 15){
+    tmrESPState = true;
+    tmr5Cnt = 0;
+  }else tmr5Cnt++;
+}
+
 void showStopper() {
-  for(int i = NeckEn; i < BackWaistEn; i++) digitalWrite(stepperMotorPins(i), HIGH);
+  for(int i = NeckEn; i < BackWaistEn; i++){
+    if(i == GreenLED) continue;
+    digitalWrite(stepperMotorPins(i), HIGH);
+  }
   for(int i = FrontWaistEn; i < BackHipEn; i++) digitalWrite(stepperMotorPins(i), HIGH);
 
   systemStateFlag = showStopperFlag;
@@ -228,15 +232,15 @@ void moveIn() {
   //digitalWrite(enPin,HIGH);
 }
 
-void moveAllOut(float desiredCircumfrence[4]) {
-  if((desiredCircumfrence[0] >= minCircumfrences[0]) &&
-     (desiredCircumfrence[1] >= minCircumfrences[1]) &&
-     (desiredCircumfrence[2] >= minCircumfrences[2]) &&
-     (desiredCircumfrence[3] >= minCircumfrences[3]) &&
-     (desiredCircumfrence[0] <= maxCircumfrences[0]) &&
-     (desiredCircumfrence[1] <= maxCircumfrences[1]) &&
-     (desiredCircumfrence[2] <= maxCircumfrences[2]) &&
-     (desiredCircumfrence[3] <= maxCircumfrences[3]))
+void moveAllOut(float desiredCircumference[4]) {
+  if((desiredCircumference[0] >= minCircumferences[0]) &&
+     (desiredCircumference[1] >= minCircumferences[1]) &&
+     (desiredCircumference[2] >= minCircumferences[2]) &&
+     (desiredCircumference[3] >= minCircumferences[3]) &&
+     (desiredCircumference[0] <= maxCircumferences[0]) &&
+     (desiredCircumference[1] <= maxCircumferences[1]) &&
+     (desiredCircumference[2] <= maxCircumferences[2]) &&
+     (desiredCircumference[3] <= maxCircumferences[3]))
   {  
     systemStateFlag = noProblemsFlag;
     digitalWrite(RedLED, LOW);
@@ -249,8 +253,8 @@ void moveAllOut(float desiredCircumfrence[4]) {
     enablePinNum = 46;
   
     for (int i = 0; i < 4; i++) {
-      activeCirRange[i] = maxCircumfrences[i] - minCircumfrences[i];
-      desiredCirDiff[i] = desiredCircumfrence[i] - minCircumfrences[i];
+      activeCirRange[i] = maxCircumferences[i] - minCircumferences[i];
+      desiredCirDiff[i] = desiredCircumference[i] - minCircumferences[i];
       percentageMovement[i] = desiredCirDiff[i] / activeCirRange[i];
     }
   
@@ -280,8 +284,7 @@ void moveAllOut(float desiredCircumfrence[4]) {
   
       if (enablePinNum >= 54) {
         enablePinNum = 14;
-      }
-      else if (enablePinNum == 18) {
+      } else if (enablePinNum == 18) {
         enablePinNum = 46;
       }
   
@@ -342,8 +345,7 @@ void moveAllIn() {
 
     if (enablePinNum >= 54) {
       enablePinNum = 14;
-    }
-    else if (enablePinNum == 18) {
+    } else if (enablePinNum == 18) {
       enablePinNum = 46;
     }
 
@@ -367,8 +369,7 @@ void moveAllIn() {
         digitalWrite(stepPinNum, LOW);
         delayMicroseconds(motSpd);
       }
-    }
-    else {
+    } else {
       digitalWrite(enablePinNum, LOW);
 
       for (int i = 0; i < stpGoal; i++) {
@@ -414,15 +415,13 @@ void ultrasonicRead() {
     tempUltrasonicValue[i] = pulseIn(ultrasonicEchoPinNum, HIGH);
     if(tempUltrasonicValue[i] == 0){
       zeroValueCnt[i]++;
-    }
-    else{
+    }else{
       zeroValueCnt[i] = 0;
     }
 
     if(tempUltrasonicValue[i]-ultrasonicValue[i] <= ultrasonicValue[i]*percentageQualifier){
       currentCompareCnt[i]++;
-    }
-    else{
+    }else{
       currentCompareCnt[i] = 0;
     }
 
@@ -514,13 +513,14 @@ void ultrasonicRead() {
 }
 
 float rxESP(float circs[4]){
+  tmrESPState = false;
   Serial1.flush();
   byte recvCircs = 0b0000;
   bool handshake = false;
   unsigned long timeout = 5000, msBegin = 0, msCurr = 0;
 
   Serial.println("\nWaiting for ESP");
-  while(Serial1.available() < 0);
+  while(Serial1.available() <= 0);
   Serial.println("Connected");
 
   msBegin = millis();
@@ -578,6 +578,8 @@ float rxESP(float circs[4]){
 
         if(goodData >= 4){
           Serial.println("All circumferences recorded");
+          Serial.println();
+          for(int i = 0; i < circsCnt; i++) Serial.println(circs[i]);
           return;
         }else if(badData >= 12){
           Serial.println("Too much bad data, fix ESP output");
@@ -605,6 +607,7 @@ void setup() {
 
   for(int i = NeckStep; i < BackHipDir; i++) pinMode(stepperMotorPins(i), OUTPUT);
   for(int i = NeckEn; i < BackWaistEn; i++){
+    if(i == GreenLED) continue;
     pinMode(stepperMotorPins(i), OUTPUT);
     digitalWrite(stepperMotorPins(i), HIGH);
   }
@@ -613,134 +616,153 @@ void setup() {
     digitalWrite(stepperMotorPins(i), HIGH);
   }
 
-  for(int i = RedLED; i < GreenLED; i++){
-    pinMode(LEDPins(i), OUTPUT);
-    digitalWrite(LEDPins(i), LOW);
-  }
-  digitalWrite(GreenLED, HIGH);
-
   for(int i = TopFrontLeftTrig; i < BottomBackRightTrig; i+=2) pinMode(ultrasonicSensorPins(i), OUTPUT);
   for(int i = TopFrontLeftEcho; i < BottomBackRightEcho; i+=2) pinMode(ultrasonicSensorPins(i), INPUT);
 
-  cli();//stop interrupts
-  //set timer1 interrupt at 1Hz
-  TCCR3A = 0;// set entire TCCR1A register to 0
-  TCCR3B = 0;// same for TCCR1B
-  TCNT3  = 0;//initialize counter value to 0
-  // set compare match register for 1hz increments
-  OCR3A = 3906;// = (16*10^6) / (1*1024) - 1 (must be <65536)
-  // turn on CTC mode
-  TCCR3B |= (1 << WGM12);
-  // Set CS10 and CS12 bits for 1024 prescaler
-  TCCR3B |= (1 << CS12) | (1 << CS10);
-  // enable timer compare interrupt
-  TIMSK3 |= (1 << OCIE3A);
-  sei();//allow interrupts
+  pinMode(GreenLED, OUTPUT);
+  pinMode(YellowLED, OUTPUT);
+  pinMode(RedLED, OUTPUT);
+  digitalWrite(GreenLED, HIGH);
+  digitalWrite(YellowLED, LOW);
+  digitalWrite(RedLED, LOW);
+
+  cli();  //stop interrupts
+  //set timer3 interrupt at 1Hz
+  TCCR3A = 0; // set entire TCCR3A register to 0
+  TCCR3B = 0; // same for TCCR1B
+  TCNT3  = 0; //initialize counter value to 0
+  //set compare match register for 1hz increments
+  OCR3A = 3906; // = (16*10^6) / (1*1024) - 1 (must be <65536)
+  TIMSK3 |= (1 << OCIE3A);  // enable timer compare interrupt
+  TCCR3B |= (1 << WGM12);   // turn on CTC mode
+  TCCR3B |= (1 << CS12) | (1 << CS10);  // Set CS10 and CS12 bits for 1024 prescaler
+
+  //set timer5 interrupt at 1Hz
+  TCCR5A = 0; // set entire TCCR5A register to 0
+  TCCR5B = 0; // same for TCCR1B
+  TCNT5  = 0; //initialize counter value to 0
+  //set compare match register for 1hz increments
+  OCR5A = 62500;  // = (16*10^6) / (1*1024) - 1 (must be < 65536)
+  TIMSK5 |= (1 << OCIE5A); // enable timer compare interrupt
+  TCCR5B |= (1 << WGM12);  // turn on CTC mode
+  TCCR5B |= (1 << CS12) | (1 << CS10);  // Set CS10 and CS12 bits for 1024 prescaler
+  sei();  //allow interrupts
 }
 
 void loop() {
-  float desiredCircumference[circsCnt] = {374, 961, 799, 969};
+  float desiredCircumference[circsCnt];
+  for(int i = 0; i < circsCnt; i++) desiredCircumference[i] = maxCircumferences[i];
 
   rxESP(desiredCircumference);
-  Serial.println();
-  for(int i = 0; i < circsCnt; i++) Serial.println(desiredCircumference[i]);
-  Serial.println();
   Serial.flush();
 
   while(true){
-    if (Serial.availableForWrite() > 0) {
+    if (Serial.available() > 0) {
       String msg = Serial.readStringUntil('\n');
+      Serial.println(msg);
 
-      if (msg == "i") {
+      if (msg.equals( "i")) {
         Serial.println("Received i");
         moveIn();
-        incomingByte = 0;
-      } else if (msg == "o") {
+      } else if (msg.equals("o")) {
         Serial.println("Received o");
         moveOut();
-        incomingByte = 0;
-      } else if (msg == "n") {
+      } else if (msg.equals("n")) {
         Serial.println("Neck");
         stepPin = NeckStep;
         dirPin = NeckDir;
         enPin = NeckEn;
         swPin = NeckLimitSW;
-      } else if (msg == "fc") {
+      } else if (msg.equals("fc")) {
         Serial.println("Front Chest");
         stepPin = FrontChestStep;
         dirPin = FrontChestDir;
-        enPin = FrontChestEn;
         swPin = FrontChestLimitSW;
-      } else if (msg == "lc") {
+      } else if (msg.equals("lc")) {
         Serial.println("Left Chest");
         stepPin = LeftChestStep;
         dirPin = LeftChestDir;
         enPin = LeftChestEn;
         swPin = LeftChestLimitSW;
-      } else if (msg == "rc") {
+      } else if (msg.equals("rc")) {
         Serial.println("Right Chest");
         stepPin = RightChestStep;
         dirPin = RightChestDir;
         enPin = RightChestEn;
         swPin = RightChestLimitSW;
-      } else if (msg == "bc") {
+      } else if (msg.equals("bc")) {
         Serial.println("Back Chest");
         stepPin = BackChestStep;
         dirPin = BackChestDir;
         enPin = BackChestEn;
         swPin = BackChestLimitSW;
-      } else if (msg == "fw") {
+      } else if (msg.equals("fw")) {
         Serial.println("Front Waist");
         stepPin = FrontWaistStep;
         dirPin = FrontWaistDir;
         enPin = FrontWaistEn;
         swPin = FrontWaistLimitSW;
-      } else if (msg == "lw") {
+      } else if (msg.equals("lw")) {
         Serial.println("Left Waist");
         stepPin = LeftWaistStep;
         dirPin = LeftWaistDir;
         enPin = LeftWaistEn;
         swPin = LeftWaistLimitSW;
-      } else if (msg == "rw") {
+      } else if (msg.equals("rw")) {
         Serial.println("Right Waist");
         stepPin = RightWaistStep;
         dirPin = RightWaistDir;
         enPin = RightWaistEn;
         swPin = RightWaistLimitSW;
-      } else if (msg == "bw") {
+      } else if (msg.equals("bw")) {
         Serial.println("Back Waist");
         stepPin = BackWaistStep;
         dirPin = BackWaistDir;
         enPin = BackWaistEn;
         swPin = BackWaistLimitSW;
-      } else if (msg == "lh") {
+      } else if (msg.equals("lh")) {
         Serial.println("Left Hip");
         stepPin = LeftHipStep;
         dirPin = LeftHipDir;
         enPin = LeftHipEn;
         swPin = LeftHipLimitSW;
-      } else if (msg == "rh") {
+      } else if (msg.equals("rh")) {
         Serial.println("Right Hip");
         stepPin = RightHipStep;
         dirPin = RightHipDir;
         enPin = RightHipEn;
         swPin = RightHipLimitSW;
-      } else if (msg == "bh") {
+      } else if (msg.equals("bh")) {
         Serial.println("Back Hip");
         stepPin = BackHipStep;
         dirPin = BackHipDir;
         enPin = BackHipEn;
         swPin = BackHipLimitSW;
-      } else if (msg == "ao") {
+      } else if (msg.equals("ao")) {
         Serial.println("Moving out to desired circumferences");
-        moveAllOut(desiredCircumfrence);
-      } else if (msg == "ai") {
+        moveAllOut(desiredCircumference);
+      } else if (msg.equals("ai")) {
         Serial.println("Moving to minimum position");
         moveAllIn();
-      } else if (msg == "reset") {
+      } else if (msg.equals("esp")) {
+        Serial.println("Retrieving data from ESP32");
+        rxESP(desiredCircumference);
+      } else if (msg.equals("reset")) {
         Serial.println("Reset");
         systemStateFlag = noProblemsFlag;
       }
+    }
+
+    if(tmrESPState){
+      float tmpCircs[circsCnt];
+      rxESP(tmpCircs);
+      for(int i = 0; i < circsCnt; i++) Serial.println(tmpCircs[i]);
+      Serial.println("New data input from ESP32, is it acceptable? [y/n]:");
+      while(Serial.available() <= 0);
+      if(Serial.readStringUntil('\n') == "y"){
+        for(int i = 0; i < circsCnt; i++) desiredCircumference[i] = tmpCircs[i];
+        Serial.println("New data accepted");
+      }else Serial.println("New data rejected");
     }
   }
 }
