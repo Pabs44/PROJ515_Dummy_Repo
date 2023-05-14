@@ -1,0 +1,60 @@
+<!DOCTYPE MeshLabDocument>
+<MeshLabProject>
+ <MeshGroup>
+  <MLMesh label="points3D.xyz" visible="0" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="0 0 0 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000100000001000000001010100000000100111010000111001101</RenderingOption>
+  </MLMesh>
+  <MLMesh label="points3D(1).xyz" visible="0" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="0 0 0 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000100000001000000001010100000000100111010000111001101</RenderingOption>
+  </MLMesh>
+  <MLMesh label="points3D(2).xyz" visible="0" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="0 0 0 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000100000001000000001010100000000100111010000111001101</RenderingOption>
+  </MLMesh>
+  <MLMesh label="points3D(3).xyz" visible="1" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="0 0 0 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000100000001000000001010100000000100111011000011001101</RenderingOption>
+  </MLMesh>
+  <MLMesh label="points3D(4).xyz" visible="0" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="0 0 0 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000100000001000000001011100000000100111011000011001101</RenderingOption>
+  </MLMesh>
+  <MLMesh label="points3D(5).xyz" visible="1" filename="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" boxColor="234 234 234 255" pointColor="131 149 69 255" wireColor="64 64 64 255" solidColor="192 192 192 255" wireWidth="1">000111000000000000000000000000000000000010100000000100111011110000001101</RenderingOption>
+  </MLMesh>
+ </MeshGroup>
+ <RasterGroup/>
+</MeshLabProject>

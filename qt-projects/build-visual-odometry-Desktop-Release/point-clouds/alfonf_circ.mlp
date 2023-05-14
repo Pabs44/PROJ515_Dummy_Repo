@@ -1,0 +1,51 @@
+<!DOCTYPE MeshLabDocument>
+<MeshLabProject>
+ <MeshGroup>
+  <MLMesh visible="1" filename="hipCirc.xyz" label="hipCirc.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" solidColor="192 192 192 255" wireColor="64 64 64 255" wireWidth="1" boxColor="234 234 234 255" pointColor="238 238 236 255">000110000000000000000100000001000000001010100000000100111011110000111101</RenderingOption>
+  </MLMesh>
+  <MLMesh visible="1" filename="neckCirc.xyz" label="neckCirc.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" solidColor="192 192 192 255" wireColor="64 64 64 255" wireWidth="1" boxColor="234 234 234 255" pointColor="255 255 255 255">000110000000000000000100000001000000001010100000000100111011110000111101</RenderingOption>
+  </MLMesh>
+  <MLMesh visible="1" filename="points3D.xyz" label="points3D.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" solidColor="192 192 192 255" wireColor="64 64 64 255" wireWidth="1" boxColor="234 234 234 255" pointColor="0 0 0 255">000111000000000000000100000001000000001010100000000100111011110000001101</RenderingOption>
+  </MLMesh>
+  <MLMesh visible="1" filename="waistCirc.xyz" label="waistCirc.xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" solidColor="192 192 192 255" wireColor="64 64 64 255" wireWidth="1" boxColor="234 234 234 255" pointColor="238 238 236 255">000110000000000000000100000001000000001010100000000100111011110000111101</RenderingOption>
+  </MLMesh>
+  <MLMesh visible="1" filename="chestCirc.xyz" label="chestCirc(3).xyz">
+   <MLMatrix44>
+1 0 0 0 
+0 1 0 0 
+0 0 1 0 
+0 0 0 1 
+</MLMatrix44>
+   <RenderingOption pointSize="3" solidColor="192 192 192 255" wireColor="64 64 64 255" wireWidth="1" boxColor="234 234 234 255" pointColor="238 238 236 255">000110000000000000000100000001000000001010100000000100111011110000111101</RenderingOption>
+  </MLMesh>
+ </MeshGroup>
+ <RasterGroup/>
+</MeshLabProject>
