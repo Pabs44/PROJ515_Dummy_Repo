@@ -29,7 +29,6 @@ else
         while true
         do
             # ----- CHECKING IF PORT IS ACTIVE ------
-            # May need improving, to show that communication is actually happening.
             if read -r line
             then
             	if grep -q '1' <<< $line
