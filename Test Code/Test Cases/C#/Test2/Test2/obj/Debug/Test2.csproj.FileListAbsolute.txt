@@ -1,0 +1,22 @@
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\bin\Debug\Test2.exe.config
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\bin\Debug\Test2.exe
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\bin\Debug\Test2.pdb
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.csproj.AssemblyReference.cache
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.csproj.SuggestedBindingRedirects.cache
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.Form1.resources
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.Properties.Resources.resources
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.csproj.GenerateResource.cache
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.csproj.CoreCompileInputs.cache
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.exe
+C:\Users\alfon\Desktop\Dummy project\Code\C#\Test2\Test2\obj\Debug\Test2.pdb
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\bin\Debug\Test2.exe.config
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\bin\Debug\Test2.exe
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\bin\Debug\Test2.pdb
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.csproj.AssemblyReference.cache
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.csproj.SuggestedBindingRedirects.cache
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.Form1.resources
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.Properties.Resources.resources
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.csproj.GenerateResource.cache
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.csproj.CoreCompileInputs.cache
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.exe
+C:\Users\alfon\Desktop\Dummy project\Testing Cases code\C#\Test2\Test2\obj\Debug\Test2.pdb
