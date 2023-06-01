@@ -1,2 +1,7 @@
 # PROJ515_Dummy_Repo
-Repo for Master's project code
+This is the repository for all the code pertaining to the MEng project of Group A.
+Within this repository, there are four folders:
+  - ESP32_Code: This folder contains all the files pertaining to the execution of the Bluetooth connection between the laptop running Linux and the ESP32     module. That includes the bash script run on Linux, the Arduino code run on the ESP, and a .csv/.xml file with the four circumferences of the human body.
+  - MannequinControl: This folder contains all the files pertaining to the control of the mannequin's hardware. It has one Arduino code file, which runs the Arduino Mega controlling the mannequin.
+  - Stepper Motor Arduino Code: This folder contains only legacy code, kept for the sake of explaining the development of the mannequin's software.
+  - Test Code: This folder contains all the files pertaining to testing all of the project's systems. Arduino (C++) and Visual Studio (C#) code can be found inside for the ESP32, the mannequin's hardware, and the test cases outlined throughout the project. The ESP code tests the connection between the ESP and the Mega, and is split in two parts: the ESP's side and the Arduino Mega's side. The mannequin hardware test code simply tests the mannequin's hardware, and is a single Arduino code file. The test code folder contains both Arduino and Visual Studio code for all relevant test cases (tests 2 and 3).
